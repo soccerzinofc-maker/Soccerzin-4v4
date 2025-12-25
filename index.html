@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOCCERZIN 4V4 - PRO EDITION</title>
+    <title>SOCCERZIN 4V4 - PRO EDITION (PC + MOBILE)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #052e16; touch-action: none; font-family: sans-serif; }
@@ -290,6 +290,9 @@ const ctx = canvas.getContext('2d');
 const FIELD_W = 2200, FIELD_H = 1200;
 const GOAL_H_HALF = 160; 
 const GOAL_DEPTH = 80;
+
+// CONTROLES DE PC (ADICIONADO)
+const keys = { w: false, a: false, s: false, d: false };
 
 // SISTEMA DE GRÁFICOS (PARA CELULAR FRACO)
 let graphicsLow = false;
@@ -792,6 +795,24 @@ window.addEventListener('touchend', (e) => {
     for(let t of e.changedTouches) if(t.identifier === joy.id) { joy.active = false; joy.force = 0; document.getElementById('joy-stick').style.transform = `translate(0,0)`; }
 });
 
+// LISTENERS DE TECLADO (PC)
+window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    
+    // Evitar movimento se estiver digitando no input
+    if (document.activeElement.tagName === 'INPUT') return;
+
+    if(keys.hasOwnProperty(k)) keys[k] = true;
+    
+    if(k === 'n') applyKick(13); // Tecla N = Chute Forte
+    if(k === 'm') applyKick(8);  // Tecla M = Passe
+});
+
+window.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if(keys.hasOwnProperty(k)) keys[k] = false;
+});
+
 function applyKick(f) {
     if(isEditing || isPaused) return; 
     const dx = ball.x - player.x;
@@ -924,9 +945,27 @@ function loop() {
 
     if (!isEditing && !isPaused) {
         if(player.time) {
-            player.vx += Math.cos(joy.angle) * joy.force * 0.8;
-            player.vy += Math.sin(joy.angle) * joy.force * 0.8;
-            player.vx *= 0.88; player.vy *= 0.88;
+            // LOGICA HIBRIDA: JOYSTICK (TOUCH) + TECLADO (PC)
+            let moveX = 0; let moveY = 0;
+            if(keys.w) moveY = -1;
+            if(keys.s) moveY = 1;
+            if(keys.a) moveX = -1;
+            if(keys.d) moveX = 1;
+
+            if(moveX !== 0 || moveY !== 0) {
+                // Se estiver pressionando teclas, usa a física do teclado
+                let angle = Math.atan2(moveY, moveX);
+                player.vx += Math.cos(angle) * 0.8;
+                player.vy += Math.sin(angle) * 0.8;
+            } else {
+                // Se não, usa o joystick original
+                player.vx += Math.cos(joy.angle) * joy.force * 0.8;
+                player.vy += Math.sin(joy.angle) * joy.force * 0.8;
+            }
+            
+            player.vx *= 0.88; 
+            player.vy *= 0.88;
+            
             player.x += player.vx; player.y += player.vy;
             checkPostCollision(player);
             let dx = ball.x - player.x, dy = ball.y - player.y, dist = Math.sqrt(dx*dx + dy*dy);
