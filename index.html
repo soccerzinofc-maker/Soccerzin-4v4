@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOCCERZIN 4V4 - 2K25</title>
+    <title>SOCCERZIN 4V4 - Seu futuro é aqui</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -554,7 +554,28 @@ function updateGameInfoDOM(t, s) {
 
 function handleClientData(data) {
     if(data.type === 'LOBBY_UPDATE') {
-        roomPlayers = data.players;
+        // Se estamos em jogo, não sobrescrevemos roomPlayers para não quebrar a interpolação
+        // Apenas atualizamos dados estáticos se necessário, ou usamos a lista completa no lobby
+        const isGameRunning = document.getElementById('lobby').style.display === 'none';
+        
+        if(!isGameRunning) {
+            roomPlayers = data.players; // No lobby pode atualizar bruto
+        } else {
+            // Em jogo, atualiza apenas metadados que podem ter mudado
+            data.players.forEach(srvP => {
+                let localP = roomPlayers.find(p => p.id === srvP.id);
+                if(localP) {
+                    localP.team = srvP.team;
+                    localP.isCaptain = srvP.isCaptain;
+                    localP.nick = srvP.nick;
+                } else {
+                    roomPlayers.push(srvP);
+                }
+            });
+            // Remove quem saiu
+            roomPlayers = roomPlayers.filter(p => data.players.find(srvP => srvP.id === p.id));
+        }
+
         score = data.score || score;
         timeLeft = data.timeLeft || timeLeft;
         isPaused = data.isPaused;
@@ -581,8 +602,34 @@ function handleClientData(data) {
     }
     
     if(data.type === 'GAME_TICK') {
-        roomPlayers = data.players;
-        ball = data.ball;
+        // --- LOGICA DE INTERPOLAÇÃO (SMOOTHING) ---
+        // Em vez de 'teletransportar', definimos um alvo (tx, ty)
+        
+        // Atualiza Bola Alvo
+        ball.tx = data.ball.x;
+        ball.ty = data.ball.y;
+        
+        // Se a bola teleportou muito longe (ex: gol), força a posição
+        if(Math.abs(ball.x - ball.tx) > 500) { ball.x = ball.tx; ball.y = ball.ty; }
+
+        // Atualiza Players Alvo
+        data.players.forEach(serverP => {
+            let localP = roomPlayers.find(p => p.id === serverP.id);
+            if(localP) {
+                localP.tx = serverP.x;
+                localP.ty = serverP.y;
+                localP.r = serverP.r;
+                // Força teleporte se a distancia for gigante (respawn)
+                if(Math.abs(localP.x - localP.tx) > 500) { 
+                    localP.x = localP.tx; localP.y = localP.ty; 
+                }
+            } else {
+                // Novo jogador entrou na visualização
+                serverP.tx = serverP.x; serverP.ty = serverP.y;
+                roomPlayers.push(serverP);
+            }
+        });
+
         score = data.score;
         timeLeft = data.timeLeft;
         updateGameInfoDOM(timeLeft, score);
@@ -989,8 +1036,9 @@ function resize() {
 }
 window.addEventListener('resize', resize); resize();
 
+// ADICIONAMOS tx E ty (TARGET X, TARGET Y) PARA INTERPOLAÇÃO
 let player = { x: -9999, y: -9999, vx: 0, vy: 0, r: 24, time: '', nick: '', input: {vx:0, vy:0, kick:0} };
-let ball = { x: FIELD_W/2, y: FIELD_H/2, vx: 0, vy: 0, r: 15, visible: true }; 
+let ball = { x: FIELD_W/2, y: FIELD_H/2, vx: 0, vy: 0, r: 15, visible: true, tx: FIELD_W/2, ty: FIELD_H/2 }; 
 let score = { azul: 0, verm: 0 }, joy = { active: false, angle: 0, force: 0, id: null };
 let isGoalProcess = false;
 let kickRequest = 0; 
@@ -1099,9 +1147,13 @@ document.getElementById('passBtn').addEventListener('touchstart', (e) => { e.pre
 
 function resetPositions() {
     ball.x = FIELD_W/2; ball.y = FIELD_H/2; ball.vx = 0; ball.vy = 0;
+    ball.tx = FIELD_W/2; ball.ty = FIELD_H/2;
     lastTouchNick = "ALGUÉM"; 
     
-    const setPos = (p, x, y) => { p.x = x; p.y = y; p.vx = 0; p.vy = 0; };
+    const setPos = (p, x, y) => { 
+        p.x = x; p.y = y; p.vx = 0; p.vy = 0;
+        p.tx = x; p.ty = y; // Reseta também o alvo
+    };
     const azuis = roomPlayers.filter(p => p.team === 'azul');
     const vermelhos = roomPlayers.filter(p => p.team === 'vermelho');
 
@@ -1293,6 +1345,7 @@ function loop() {
         kickRequest = 0; 
     }
 
+    // --- LÓGICA DO HOST (Física Real) ---
     if(isHost && !isPaused) {
         roomPlayers.forEach(p => {
             if(!p.input) return;
@@ -1362,6 +1415,23 @@ function loop() {
             });
             lastNetworkUpdate = now;
         }
+    } 
+    // --- LÓGICA DO CLIENTE (Interpolação/Suavização) ---
+    else if (!isHost && !isPaused) {
+        // SMOOTHING: Move suavemente 20% do caminho até o alvo a cada frame
+        const lerpFactor = 0.2; 
+        
+        // Suaviza Bola
+        ball.x += (ball.tx - ball.x) * lerpFactor;
+        ball.y += (ball.ty - ball.y) * lerpFactor;
+
+        // Suaviza Jogadores
+        roomPlayers.forEach(p => {
+            if(p.tx !== undefined && p.x > -5000) {
+                p.x += (p.tx - p.x) * lerpFactor;
+                p.y += (p.ty - p.y) * lerpFactor;
+            }
+        });
     }
 
     if(!graphicsLow && particles.length > 0) {
