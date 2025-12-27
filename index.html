@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOCCERZIN 4V4 - FINAL FIX 4.0</title>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <title>SOCCERZIN 4V4 - ONLINE PC E ANDROID</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #052e16; touch-action: none; font-family: sans-serif; }
@@ -309,7 +309,17 @@
 </div>
 
 <script>
-// --- VARIÁVEIS DE REDE ---
+// --- CONFIGURAÇÃO DE REDE (FIX PARA JOGAR A DISTÂNCIA) ---
+// Adicionando servidores STUN do Google para permitir conexão através de roteadores
+const peerConfig = {
+    config: {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+    }
+};
+
 let peer = null;
 let conn = null; 
 let connections = []; 
@@ -403,7 +413,8 @@ function createRoom() {
     const peerId = "SOC-PRO-" + code;
     document.getElementById('network-status').innerText = "Criando sala " + code + "...";
     
-    peer = new Peer(peerId);
+    // FIX: Adicionado peerConfig para funcionar a distância
+    peer = new Peer(peerId, peerConfig);
     
     peer.on('open', (id) => {
         isHost = true;
@@ -445,7 +456,8 @@ function joinRoom() {
     }
     
     const hostId = "SOC-PRO-" + code;
-    peer = new Peer(); 
+    // FIX: Adicionado peerConfig para funcionar a distância
+    peer = new Peer(peerConfig); 
     
     peer.on('open', (id) => {
         myPeerId = id;
@@ -491,7 +503,7 @@ function handleData(data, connection) {
         if(!roomPlayers.find(p => p.id === newP.id)) {
             newP.x = -9999; newP.y = -9999;
             newP.r = 24;
-            // AFK SYSTEM: Inicializa o contador
+            // AFK SYSTEM: Inicializa o contador (NÃO MAIS USADO PARA KICK AUTOMÁTICO)
             newP.lastAction = Date.now(); 
             roomPlayers.push(newP);
             connection.peerPlayerId = newP.id; 
@@ -511,7 +523,7 @@ function handleData(data, connection) {
     if(data.type === 'CHAT') {
         appendMessageToAll(data.nick, data.msg);
         broadcast({ type: 'CHAT', nick: data.nick, msg: data.msg });
-        // Chat conta como atividade pra não ser kickado
+        // Chat conta como atividade
         const p = roomPlayers.find(pl => pl.nick === data.nick);
         if(p) p.lastAction = Date.now();
     }
@@ -525,7 +537,7 @@ function updateGameInfoDOM(t, s) {
     document.getElementById('scoreV').innerText = s.verm;
 }
 
-// LÓGICA DO CLIENTE (CORREÇÃO DE BUGS AQUI)
+// LÓGICA DO CLIENTE
 function handleClientData(data) {
     if(data.type === 'LOBBY_UPDATE') {
         roomPlayers = data.players;
@@ -533,21 +545,18 @@ function handleClientData(data) {
         timeLeft = data.timeLeft || timeLeft;
         isPaused = data.isPaused;
         
-        // FIX: Atualiza dados locais do jogador SEMPRE que houver update
         const me = roomPlayers.find(p => p.id === myData.id);
         if(me) {
             myData.team = me.team;
             myData.isCaptain = me.isCaptain;
             player.time = (myData.team === 'spec') ? null : myData.team;
             
-            // FIX CRÍTICO: Se o jogo está rodando, força atualização dos botões
             if(data.gameRunning) {
                 updateControlsVisibility();
             }
         }
         updateLobbyUI();
         
-        // Sincroniza estado do jogo
         const isGameRunningLocally = document.getElementById('lobby').style.display === 'none';
         
         if(data.gameRunning && !isGameRunningLocally) {
@@ -740,7 +749,6 @@ window.startGame = function() {
     broadcastRoomState();
 }
 
-// FUNÇÃO ATUALIZADA: Garante que os controles aparecem
 function updateControlsVisibility() {
     const isSpec = !player.time || player.time === 'spec';
     
@@ -759,7 +767,6 @@ function startGameClient() {
     document.getElementById('scoreboard').style.display = 'flex';
     document.getElementById('ingame-top-right').style.display = 'flex';
     
-    // RE-VERIFICA O TIME LOCALMENTE ANTES DE INICIAR
     const me = roomPlayers.find(p => p.id === myData.id);
     if(me) {
         player.time = (me.team === 'spec') ? null : me.team;
@@ -907,7 +914,7 @@ function sendLobbyChat() {
 document.getElementById('lobby-chat-input').addEventListener('keydown', function(e) { if(e.key === 'Enter') sendLobbyChat(); });
 document.getElementById('chat-input').addEventListener('keydown', function(e) { if(e.key === 'Enter') sendChatMessage(); });
 
-// TIMER E AFK CHECKER DO HOST
+// TIMER E LÓGICA DO HOST
 function startTimer() {
     setInterval(() => {
         if(!isHost) return;
@@ -918,21 +925,8 @@ function startTimer() {
             if(timeLeft === 0) { timeLeft = 300; resetPositions(); }
         }
 
-        // 2. Lógica Anti-AFK (2 minutos = 120000ms)
-        const now = Date.now();
-        // Clona o array pra evitar problemas ao remover durante o loop
-        const playersToCheck = [...roomPlayers]; 
-        playersToCheck.forEach(p => {
-            // Não kicka o host
-            if(p.id === myPeerId) {
-                if(Math.abs(p.input.vx) > 0.1 || Math.abs(p.input.vy) > 0.1) p.lastAction = now;
-                return; 
-            }
-
-            if(now - p.lastAction > 120000) { // 2 minutos
-                kickPlayer(p.id, "Removido por inatividade (AFK).");
-            }
-        });
+        // 2. Lógica Anti-AFK REMOVIDA A PEDIDO
+        // O código que expulsava jogadores por inatividade foi removido daqui para evitar bugs.
 
     }, 1000);
 }
@@ -1136,7 +1130,6 @@ function triggerGoal(scorer) {
     document.getElementById('goal-nick').innerText = scorer;
     document.getElementById('goal-container').style.display = 'block';
     
-    // OTIMIZAÇÃO: Limita partículas
     if(!graphicsLow && particles.length < 50) {
         for(let i=0; i<40; i++) {
             particles.push({
@@ -1236,9 +1229,7 @@ function processInputLocal() {
         vy = Math.sin(joy.angle) * joy.force;
     }
     
-    // AFK System local check
     if((vx !== 0 || vy !== 0 || kickRequest > 0) && isHost) {
-        // Se eu sou o host e mexi, atualizo meu timestamp
         const me = roomPlayers.find(p => p.id === myPeerId);
         if(me) me.lastAction = Date.now();
     }
@@ -1247,7 +1238,6 @@ function processInputLocal() {
 }
 
 function loop() {
-    // OTIMIZAÇÃO: Usa clearRect do tamanho da tela apenas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     if(document.getElementById('lobby').style.display !== 'none') {
@@ -1271,7 +1261,6 @@ function loop() {
     if(isHost && !isPaused) {
         roomPlayers.forEach(p => {
             if(!p.input) return;
-            // OTIMIZAÇÃO: Evita cálculo se player está muito longe
             if(p.x < -1000) return;
 
             p.vx += p.input.vx * 0.8;
@@ -1284,7 +1273,9 @@ function loop() {
                  const dx = ball.x - p.x;
                  const dy = ball.y - p.y;
                  const dist = Math.sqrt(dx*dx + dy*dy);
-                 if(dist < 75) { 
+                 
+                 // FIX: CHUTE SÓ SE ESTIVER TOCANDO (Raio Player + Raio Bola + Pequena margem)
+                 if(dist < p.r + ball.r + 5) { 
                      ball.vx = (dx/dist)*p.input.kick; 
                      ball.vy = (dy/dist)*p.input.kick; 
                      playSound('kick');
@@ -1329,7 +1320,6 @@ function loop() {
 
         broadcast({ 
             type: 'GAME_TICK', 
-            // OTIMIZAÇÃO: Arredonda valores para reduzir banda
             players: roomPlayers.map(p => ({id:p.id, x:Math.round(p.x), y:Math.round(p.y), r:p.r, nick:p.nick, team:p.team, isCaptain:p.isCaptain})),
             ball: {x:Math.round(ball.x), y:Math.round(ball.y), r:ball.r},
             score: score,
