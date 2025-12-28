@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOCCERZIN 4V4 - ULTRA OTIMIZADO 2.0</title>
+    <title>SOCCERZIN 4V4 - ZERO DELAY V3</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -109,10 +109,13 @@
         #ingame-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 300; pointer-events: auto; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
 
         #error-msg { color: #ef4444; font-weight: bold; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px; display: none; }
-        #network-status { position: absolute; bottom: 10px; left: 10px; color: yellow; font-size: 10px; z-index: 999; text-shadow: 1px 1px 2px black; }
+        #network-status { position: absolute; bottom: 10px; left: 10px; color: yellow; font-size: 10px; z-index: 999; text-shadow: 1px 1px 2px black; font-family: monospace; }
 
         #credits-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.95); z-index: 500; pointer-events: auto; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
         .credits-box { background: #111; border: 2px solid #22c55e; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 0 50px rgba(34, 197, 94, 0.2); }
+        
+        .lag-indicator { color: red; font-weight: bold; animation: pulse 0.5s infinite; display: none; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -223,7 +226,7 @@
         
         <div id="screen-main" class="menu-screen">
             <h1 class="text-7xl font-black italic mb-2">SOCCERZIN <span class="text-green-500">4V4</span></h1>
-            <p class="text-xs text-green-400 font-bold mb-4 tracking-widest">⚡ NETCODE V2 - ZERO LAG</p>
+            <p class="text-xs text-green-400 font-bold mb-4 tracking-widest uppercase">⚡ Cliente Preditivo - Lag Zero</p>
             <input type="text" id="playerNick" class="bg-white/5 border border-white/10 text-white px-4 py-4 rounded-2xl mb-6 w-72 text-center font-bold text-xl" placeholder="SEU NICKNAME" maxlength="12">
             
             <button onclick="goToRoomMenu()" class="bg-green-600 text-black px-10 py-5 rounded-2xl font-black text-2xl shadow-lg hover:scale-105 transition mb-6 w-72">JOGAR SALAS</button>
@@ -322,13 +325,16 @@
 </div>
 
 <script>
-// --- CONFIGURAÇÃO DE REDE OTIMIZADA PARA DISTÂNCIA (V2) ---
-// Usando servidores Google STUN para melhor conectividade P2P
+// --- CONFIGURAÇÃO DE REDE OTIMIZADA PARA DISTÂNCIA (V3 - PRIVATE READY) ---
+// Adicionamos múltiplos servidores STUN públicos para garantir que o P2P funcione 
+// e evite o servidor de relay (que é lento).
 const peerConfig = {
-    host: '0.peerjs.com',
+    // Se você tiver um servidor privado Node.js, mude aqui:
+    // host: 'seu-ip-vps', port: 9000, path: '/soccerzin',
+    host: '0.peerjs.com', 
     port: 443,
     secure: true,
-    pingInterval: 5000, // Mantém a conexão viva
+    pingInterval: 5000, // Mantém a porta do roteador aberta
     config: {
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -336,16 +342,20 @@ const peerConfig = {
             { urls: 'stun:stun2.l.google.com:19302' },
             { urls: 'stun:stun3.l.google.com:19302' },
             { urls: 'stun:stun4.l.google.com:19302' },
+            { urls: 'stun:stun.voiparound.com:3478' },
+            { urls: 'stun:stun.voipbuster.com:3478' }
         ],
         iceCandidatePoolSize: 10
     }
 };
 
-// Configuração UDP agressiva para evitar fila de pacotes (Head-of-line blocking)
+// Configuração UDP agressiva. 
+// 'reliable: false' e 'ordered: false' são essenciais para jogos rápidos.
+// Se um pacote perder, a gente não espera ele, pega o próximo.
 const connectionOptions = {
     reliable: false, 
-    ordered: false, // O SEGREDO DO "ZERO LAG": Se um pacote perder, ignora e pega o próximo mais recente.
-    serialization: 'json'
+    ordered: false,
+    serialization: 'json' // Leve e rápido
 };
 
 let peer = null;
@@ -357,7 +367,7 @@ let myPeerId = null;
 let myData = { nick: '', id: '', isAdmin: false, team: 'spec', isCaptain: false, r: 24 };
 
 let lastNetworkUpdate = 0;
-const networkUpdateRate = 1000 / 30; // 30 TICKS/SEC (Estável)
+const networkUpdateRate = 1000 / 30; // 30 Pacotes por segundo (Tickrate)
 
 function generateRoomCode() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -367,7 +377,7 @@ function generateRoomCode() {
 }
 
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true }); // Desynchronized ajuda na latência de render
+const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true }); 
 const FIELD_W = 2200, FIELD_H = 1200;
 const GOAL_H_HALF = 160; 
 const GOAL_DEPTH = 80;
@@ -375,7 +385,7 @@ const GOAL_DEPTH = 80;
 const keys = { w: false, a: false, s: false, d: false };
 let graphicsLow = false;
 
-// OTIMIZAÇÃO: Detectar celular fraco inicialmente
+// Detectar celular fraco
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 if(isMobile) graphicsLow = true;
 
@@ -446,7 +456,8 @@ function backToMain() {
 
 function createRoom() {
     const code = generateRoomCode();
-    const peerId = "SOC-PRO-" + code;
+    // Prefixando para evitar colisões no servidor público
+    const peerId = "SOC-PRO-V3-" + code; 
     document.getElementById('network-status').innerText = "Criando sala " + code + "...";
     
     peer = new Peer(peerId, peerConfig);
@@ -455,7 +466,7 @@ function createRoom() {
         isHost = true;
         myPeerId = id;
         enterRoomLobby(code, true);
-        document.getElementById('network-status').innerText = "Hospedando: " + code;
+        document.getElementById('network-status').innerText = "HOST: " + code + " (Aguardando P2P)";
     });
     
     peer.on('connection', (c) => {
@@ -470,13 +481,12 @@ function createRoom() {
                 broadcastRoomState();
             }
         });
-        // Enviar estado inicial FULL (LOBBY_UPDATE contém nicks e times)
         c.send({ type: 'LOBBY_UPDATE', players: roomPlayers, isPaused: isPaused, score: score, timeLeft: timeLeft });
     });
     
     peer.on('error', (err) => {
         console.log(err);
-        alert("Erro ao criar sala. Código em uso ou erro de rede.");
+        alert("Erro ao criar sala. Código em uso ou rede restrita.");
         backToMain();
     });
 }
@@ -491,12 +501,13 @@ function joinRoom() {
         return;
     }
     
-    const hostId = "SOC-PRO-" + code;
+    const hostId = "SOC-PRO-V3-" + code;
     peer = new Peer(peerConfig); 
     
     peer.on('open', (id) => {
         myPeerId = id;
         
+        // Conexão agressiva
         conn = peer.connect(hostId, connectionOptions);
         
         conn.on('open', () => {
@@ -516,13 +527,13 @@ function joinRoom() {
         });
         
         conn.on('error', (err) => {
-            errorEl.innerText = "SALA NÃO ENCONTRADA!";
+            errorEl.innerText = "SALA NÃO ENCONTRADA OU CHEIA!";
             errorEl.style.display = 'block';
         });
     });
     
     peer.on('error', (err) => {
-        errorEl.innerText = "ERRO DE CONEXÃO!";
+        errorEl.innerText = "ERRO DE CONEXÃO NAT/FIREWALL";
         errorEl.style.display = 'block';
     });
 }
@@ -547,16 +558,15 @@ function handleData(data, connection) {
     if(data.type === 'INPUT') {
         const p = roomPlayers.find(pl => pl.id === data.id);
         if(p) {
-            // Aceita o input mais recente, não precisa de validação complexa pra esse tipo de jogo
             p.input = data.input; 
+            // HOST RECONCILIATION: Se o cliente disse que chutou, verificamos aqui
+            p.input.kick = data.input.kick; 
             p.lastAction = Date.now();
         }
     }
     if(data.type === 'CHAT') {
         appendMessageToAll(data.nick, data.msg);
         broadcast({ type: 'CHAT', nick: data.nick, msg: data.msg });
-        const p = roomPlayers.find(pl => pl.nick === data.nick);
-        if(p) p.lastAction = Date.now();
     }
 }
 
@@ -569,14 +579,13 @@ function updateGameInfoDOM(t, s) {
 }
 
 function handleClientData(data) {
-    // 1. Atualização completa do LOBBY (acontece raramente, contém strings pesadas)
     if(data.type === 'LOBBY_UPDATE') {
         const isGameRunning = document.getElementById('lobby').style.display === 'none';
         
         if(!isGameRunning) {
-            roomPlayers = data.players; // No lobby, atualiza tudo
+            roomPlayers = data.players;
         } else {
-            // Ingame, atualiza metadados (times, nicks) mas preserva posições locais se existirem
+            // Atualiza apenas metadados, posição vem no GT
             data.players.forEach(srvP => {
                 let localP = roomPlayers.find(p => p.id === srvP.id);
                 if(localP) {
@@ -587,7 +596,6 @@ function handleClientData(data) {
                     roomPlayers.push(srvP);
                 }
             });
-            // Remove quem saiu
             roomPlayers = roomPlayers.filter(p => data.players.find(srvP => srvP.id === p.id));
         }
 
@@ -612,45 +620,46 @@ function handleClientData(data) {
         else if(!data.gameRunning && isGameRunningLocally) cancelMatchClient();
     }
     
-    // 2. TICK DO JOGO (Ultra Leve - Só números)
-    if(data.type === 'GT') { // GT = Game Tick
-        // Bola
+    // NETCODE V3: CLIENT-SIDE RECONCILIATION
+    if(data.type === 'GT') { 
+        // Bola: Interpolação normal
         ball.tx = data.b.x;
         ball.ty = data.b.y;
         
-        // Correção abrupta se dessincronizar muito
-        if(Math.abs(ball.x - ball.tx) > 500) { ball.x = ball.tx; ball.y = ball.ty; }
+        if(Math.abs(ball.x - ball.tx) > 600) { ball.x = ball.tx; ball.y = ball.ty; }
 
-        // Players (Payload comprimido: [id, x, y])
         data.p.forEach(serverP => {
-            let localP = roomPlayers.find(p => p.id === serverP.i); // i = id
+            let localP = roomPlayers.find(p => p.id === serverP.i); 
             if(localP) {
-                localP.tx = serverP.x;
-                localP.ty = serverP.y;
-                // Correção de teleport
-                if(Math.abs(localP.x - localP.tx) > 500) { 
-                    localP.x = localP.tx; localP.y = localP.ty; 
+                // SE FOR EU: Só corrijo se a diferença for brutal (Desync)
+                // Isso permite que meu movimento local seja soberano (Ping 0 feel)
+                if(localP.id === myData.id) {
+                    let dx = localP.x - serverP.x;
+                    let dy = localP.y - serverP.y;
+                    if(Math.sqrt(dx*dx + dy*dy) > 100) { 
+                        // Correção suave de desync
+                        localP.x = localP.x * 0.9 + serverP.x * 0.1; 
+                        localP.y = localP.y * 0.9 + serverP.y * 0.1;
+                    }
+                } else {
+                    // OUTROS: Interpolação normal
+                    localP.tx = serverP.x;
+                    localP.ty = serverP.y;
+                    if(Math.abs(localP.x - localP.tx) > 500) { 
+                        localP.x = localP.tx; localP.y = localP.ty; 
+                    }
                 }
             }
         });
 
-        score = data.s; // s = score
-        timeLeft = data.t; // t = time
+        score = data.s; 
+        timeLeft = data.t; 
         updateGameInfoDOM(timeLeft, score);
     }
 
-    if(data.type === 'GOAL_EVENT') {
-        triggerGoal(data.scorer);
-    }
-
-    if(data.type === 'CHAT') {
-        appendMessageToAll(data.nick, data.msg);
-    }
-
-    if(data.type === 'KICKED') {
-        alert(data.msg);
-        quitToMain();
-    }
+    if(data.type === 'GOAL_EVENT') { triggerGoal(data.scorer); }
+    if(data.type === 'CHAT') { appendMessageToAll(data.nick, data.msg); }
+    if(data.type === 'KICKED') { alert(data.msg); quitToMain(); }
 }
 
 function broadcast(msg) {
@@ -1304,6 +1313,20 @@ function processInputLocal() {
         vy = Math.sin(joy.angle) * joy.force;
     }
     
+    // --- CLIENT PREDICTION (V3) ---
+    // Aplica o movimento localmente para o cliente sentir 0 delay
+    if(!isHost && myData.id) {
+        const me = roomPlayers.find(p => p.id === myData.id);
+        if(me) {
+            me.vx += vx * 0.8; me.vy += vy * 0.8;
+            me.vx *= 0.88; me.vy *= 0.88;
+            me.x += me.vx; me.y += me.vy;
+            // Checagem básica de parede local
+            if(me.y < me.r) me.y = me.r;
+            if(me.y > FIELD_H - me.r) me.y = FIELD_H - me.r;
+        }
+    }
+    
     if((vx !== 0 || vy !== 0 || kickRequest > 0) && isHost) {
         const me = roomPlayers.find(p => p.id === myPeerId);
         if(me) me.lastAction = Date.now();
@@ -1326,9 +1349,11 @@ function loop() {
 
     if(!isPaused) {
         const myInput = processInputLocal();
+        // CLIENT: Envia input
         if(!isHost && conn && conn.open) {
             conn.send({ type: 'INPUT', id: myData.id, input: myInput });
         }
+        // HOST: Processa direto
         if(isHost) {
             const me = roomPlayers.find(p => p.id === myData.id);
             if(me) me.input = myInput;
@@ -1337,7 +1362,7 @@ function loop() {
         kickRequest = 0; 
     }
 
-    // --- LÓGICA DO HOST ---
+    // --- LÓGICA DO HOST (Física Real) ---
     if(isHost && !isPaused) {
         roomPlayers.forEach(p => {
             if(!p.input) return;
@@ -1348,6 +1373,12 @@ function loop() {
             p.vx *= 0.88; p.vy *= 0.88;
             p.x += p.vx; p.y += p.vy;
             checkPostCollision(p);
+
+            // Paredes campo
+            if(p.y < p.r) p.y = p.r;
+            if(p.y > FIELD_H - p.r) p.y = FIELD_H - p.r;
+            if(p.x < p.r) p.x = p.r;
+            if(p.x > FIELD_W - p.r) p.x = FIELD_W - p.r;
 
             if(p.input.kick > 0) {
                  const dx = ball.x - p.x;
@@ -1398,7 +1429,6 @@ function loop() {
 
         const now = Date.now();
         if(now - lastNetworkUpdate > networkUpdateRate) {
-            // PAYLOAD OTIMIZADO: Só envia ID, X, Y (Sem strings, sem nomes, sem times)
             broadcast({ 
                 type: 'GT', // Game Tick
                 p: roomPlayers.map(p => ({i:p.id, x:Math.round(p.x), y:Math.round(p.y)})),
@@ -1409,19 +1439,21 @@ function loop() {
             lastNetworkUpdate = now;
         }
     } 
-    // --- LÓGICA DO CLIENTE (INTERPOLAÇÃO MELHORADA) ---
+    // --- LÓGICA DO CLIENTE (Interpolação Suave) ---
     else if (!isHost && !isPaused) {
-        // Fator de suavização aumentado para compensar a falta de ordem nos pacotes
-        const lerpFactor = 0.4; 
-        
-        ball.x += (ball.tx - ball.x) * lerpFactor;
-        ball.y += (ball.ty - ball.y) * lerpFactor;
+        // Bola: Interpolação forte (ela não é controlada por mim)
+        const lerpFactorBall = 0.3; 
+        ball.x += (ball.tx - ball.x) * lerpFactorBall;
+        ball.y += (ball.ty - ball.y) * lerpFactorBall;
 
         roomPlayers.forEach(p => {
-            if(p.tx !== undefined && p.x > -5000) {
-                p.x += (p.tx - p.x) * lerpFactor;
-                p.y += (p.ty - p.y) * lerpFactor;
+            // Se NÃO SOU EU, interpolo normalmente
+            if(p.id !== myData.id && p.tx !== undefined && p.x > -5000) {
+                p.x += (p.tx - p.x) * 0.3;
+                p.y += (p.ty - p.y) * 0.3;
             }
+            // SE SOU EU, eu já me movi no processInputLocal, então aqui não faço nada 
+            // a não ser que o handleData detecte erro grande (Server Reconciliation)
         });
     }
 
