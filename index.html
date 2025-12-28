@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOCCERZIN 4V4 - ZERO LAG (UDP)</title>
+    <title>SOCCERZIN 4V4 - ULTRA OTIMIZADO</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -14,7 +14,7 @@
             display: block; 
             background: #14532d;
             will-change: transform;
-            transform: translateZ(0); 
+            transform: translateZ(0); /* Força GPU */
         }
         
         #orientacao-aviso {
@@ -321,25 +321,24 @@
 </div>
 
 <script>
-// --- CONFIGURAÇÃO DE REDE OTIMIZADA (STUN GLOBAL E AGRESSIVO) ---
-// Isso força a achar o caminho mais curto (P2P) mesmo em distâncias longas
+// --- CONFIGURAÇÃO DE REDE EXTREMA (ANTI-LAG) ---
 const peerConfig = {
-    host: '0.peerjs.com',
-    port: 443,
-    secure: true,
+    // Usamos servidores Google e outros STUNs públicos confiáveis
+    // Isso ajuda a furar o NAT e evitar cair em servidores de relay (lentos)
     config: {
         iceServers: [
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
             { urls: 'stun:stun3.l.google.com:19302' },
             { urls: 'stun:stun4.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' } // Servidor extra para robustez
-        ],
-        iceCandidatePoolSize: 10 // Acelera a conexão inicial
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
     },
-    debug: 1 // Nivel baixo de log para performance
+    debug: 1
 };
 
+// Variaveis de Rede
 let peer = null;
 let conn = null; 
 let connections = []; 
@@ -348,9 +347,10 @@ let myPeerId = null;
 
 let myData = { nick: '', id: '', isAdmin: false, team: 'spec', isCaptain: false, r: 24 };
 
+// Controle de pacotes para evitar "teleportes" antigos
+let lastPacketTime = 0; 
 let lastNetworkUpdate = 0;
-// Aumentei um pouco a taxa para 25 ticks, mais estável em 3G/4G
-const networkUpdateRate = 1000 / 25; 
+const networkUpdateRate = 1000 / 30; // 30 TICKS/SEC
 
 function generateRoomCode() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -360,7 +360,7 @@ function generateRoomCode() {
 }
 
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d', { alpha: false }); // alpha: false otimiza renderização
+const ctx = canvas.getContext('2d', { alpha: false }); // Desativa transparencia do fundo pra ganhar FPS
 const FIELD_W = 2200, FIELD_H = 1200;
 const GOAL_H_HALF = 160; 
 const GOAL_DEPTH = 80;
@@ -448,7 +448,7 @@ function createRoom() {
         isHost = true;
         myPeerId = id;
         enterRoomLobby(code, true);
-        document.getElementById('network-status').innerText = "HOST: " + code;
+        document.getElementById('network-status').innerText = "Host (P2P): " + code;
     });
     
     peer.on('connection', (c) => {
@@ -469,7 +469,7 @@ function createRoom() {
     
     peer.on('error', (err) => {
         console.log(err);
-        alert("Erro ao criar sala. Código em uso ou erro de rede.");
+        alert("Erro ao criar sala. Tente novamente.");
         backToMain();
     });
 }
@@ -490,12 +490,9 @@ function joinRoom() {
     peer.on('open', (id) => {
         myPeerId = id;
         
-        // --- OTIMIZAÇÃO MÁXIMA PARA REDE ---
-        // reliable: false = UDP (rápido)
-        // ordered: false = Não espera pacote perdido (Zero Lag)
+        // Conexão Otimizada UDP-like
         conn = peer.connect(hostId, {
             reliable: false, 
-            ordered: false,
             serialization: 'json'
         });
         
@@ -503,7 +500,7 @@ function joinRoom() {
             isHost = false;
             conn.send({ type: 'JOIN', player: myData });
             enterRoomLobby(code, false);
-            document.getElementById('network-status').innerText = "CLIENTE: " + code;
+            document.getElementById('network-status').innerText = "Conectado via UDP/P2P";
         });
         
         conn.on('data', (data) => {
@@ -511,7 +508,7 @@ function joinRoom() {
         });
         
         conn.on('close', () => {
-            alert("Conexão perdida com o Host!");
+            alert("Conexão perdida com o Host.");
             quitToMain();
         });
         
@@ -522,7 +519,7 @@ function joinRoom() {
     });
     
     peer.on('error', (err) => {
-        errorEl.innerText = "ERRO DE CONEXÃO!";
+        errorEl.innerText = "ERRO DE REDE!";
         errorEl.style.display = 'block';
     });
 }
@@ -548,6 +545,7 @@ function handleData(data, connection) {
         const p = roomPlayers.find(pl => pl.id === data.id);
         if(p) {
             p.input = data.input; 
+            // Anti-AFK simples
             if(Math.abs(p.input.vx) > 0.1 || Math.abs(p.input.vy) > 0.1 || p.input.kick > 0) {
                 p.lastAction = Date.now();
             }
@@ -576,7 +574,7 @@ function handleClientData(data) {
         if(!isGameRunning) {
             roomPlayers = data.players; 
         } else {
-            // Sincronização parcial durante jogo
+            // Merge cuidadoso para não resetar posições locais se o lag ocorrer
             data.players.forEach(srvP => {
                 let localP = roomPlayers.find(p => p.id === srvP.id);
                 if(localP) {
@@ -587,6 +585,7 @@ function handleClientData(data) {
                     roomPlayers.push(srvP);
                 }
             });
+            // Remover quem saiu
             roomPlayers = roomPlayers.filter(p => data.players.find(srvP => srvP.id === p.id));
         }
 
@@ -616,14 +615,16 @@ function handleClientData(data) {
     }
     
     if(data.type === 'GAME_TICK') {
-        // --- LOGICA DE INTERPOLAÇÃO (SMOOTHING) ---
-        
+        // --- FILTRO DE PACOTES ANTIGOS (LAG KILLER) ---
+        if (data.ts && data.ts < lastPacketTime) return; // Ignora pacotes que chegaram fora de ordem
+        lastPacketTime = data.ts;
+
         // Atualiza Bola Alvo
         ball.tx = data.ball.x;
         ball.ty = data.ball.y;
         
-        // Teleport se a desync for muito grande
-        if(Math.abs(ball.x - ball.tx) > 500) { ball.x = ball.tx; ball.y = ball.ty; }
+        // Se a bola teleportou muito longe (gol ou reset), força a posição
+        if(Math.abs(ball.x - ball.tx) > 400) { ball.x = ball.tx; ball.y = ball.ty; }
 
         // Atualiza Players Alvo
         data.players.forEach(serverP => {
@@ -632,7 +633,8 @@ function handleClientData(data) {
                 localP.tx = serverP.x;
                 localP.ty = serverP.y;
                 localP.r = serverP.r;
-                if(Math.abs(localP.x - localP.tx) > 500) { 
+                // Teleporte se a discrepância for muito grande
+                if(Math.abs(localP.x - localP.tx) > 400) { 
                     localP.x = localP.tx; localP.y = localP.ty; 
                 }
             } else {
@@ -661,6 +663,8 @@ function handleClientData(data) {
 }
 
 function broadcast(msg) {
+    // Só envia se tiver conexões, economiza CPU
+    if(connections.length === 0) return;
     connections.forEach(c => {
         if(c.open) c.send(msg);
     });
@@ -945,24 +949,12 @@ function toggleChat() {
     chat.style.display = chat.style.display === 'flex' ? 'none' : 'flex';
 }
 
-// --- FIX DE LAG: LIMPEZA DE CHAT ---
 function appendMessageToAll(nick, msg) {
     const line = `<div><strong>${nick}:</strong> ${msg}</div>`;
-    
     const ingameDiv = document.getElementById('chat-msgs');
-    if(ingameDiv) { 
-        ingameDiv.insertAdjacentHTML('beforeend', line); 
-        // Remove mensagens antigas para não lagar o DOM
-        while(ingameDiv.children.length > 20) ingameDiv.removeChild(ingameDiv.firstChild);
-        ingameDiv.scrollTop = ingameDiv.scrollHeight; 
-    }
-    
+    if(ingameDiv) { ingameDiv.insertAdjacentHTML('beforeend', line); ingameDiv.scrollTop = ingameDiv.scrollHeight; }
     const lobbyDiv = document.getElementById('lobby-chat-msgs');
-    if(lobbyDiv) { 
-        lobbyDiv.insertAdjacentHTML('beforeend', line); 
-        while(lobbyDiv.children.length > 30) lobbyDiv.removeChild(lobbyDiv.firstChild);
-        lobbyDiv.scrollTop = lobbyDiv.scrollHeight; 
-    }
+    if(lobbyDiv) { lobbyDiv.insertAdjacentHTML('beforeend', line); lobbyDiv.scrollTop = lobbyDiv.scrollHeight; }
 }
 
 function sendChatMessage() {
@@ -1193,19 +1185,23 @@ function resetPositions() {
 }
 
 function resolvePlayerCollisions() {
-    for (let i = 0; i < roomPlayers.length; i++) {
-        for (let j = i + 1; j < roomPlayers.length; j++) {
-            let p1 = roomPlayers[i];
-            let p2 = roomPlayers[j];
+    // Otimização: Loop mais simples
+    const len = roomPlayers.length;
+    for (let i = 0; i < len; i++) {
+        let p1 = roomPlayers[i];
+        if (p1.x < -1000) continue;
 
-            if (p1.x < -1000 || p2.x < -1000) continue;
+        for (let j = i + 1; j < len; j++) {
+            let p2 = roomPlayers[j];
+            if (p2.x < -1000) continue;
 
             let dx = p2.x - p1.x;
             let dy = p2.y - p1.y;
-            let dist = Math.sqrt(dx * dx + dy * dy);
+            let distSq = dx * dx + dy * dy;
             let minDist = p1.r + p2.r;
-
-            if (dist < minDist && dist > 0) {
+            
+            if (distSq < minDist * minDist) {
+                let dist = Math.sqrt(distSq);
                 let overlap = minDist - dist;
                 let moveX = (dx / dist) * (overlap / 2);
                 let moveY = (dy / dist) * (overlap / 2);
@@ -1221,16 +1217,15 @@ function triggerGoal(scorer) {
     document.getElementById('goal-nick').innerText = scorer;
     document.getElementById('goal-container').style.display = 'block';
     
-    // OTIMIZAÇÃO: Menos particulas em mobile
-    const particleCount = graphicsLow ? 8 : 40;
-    if(particles.length < 50) {
-        for(let i=0; i<particleCount; i++) {
-            particles.push({
-                x: canvas.width/2, y: canvas.height/2,
-                vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15,
-                life: 1.0, color: `hsl(${Math.random()*360}, 100%, 50%)`
-            });
-        }
+    // Reduzido para evitar sobrecarga
+    const particleCount = graphicsLow ? 5 : 20;
+    particles = []; // Limpa anteriores
+    for(let i=0; i<particleCount; i++) {
+        particles.push({
+            x: canvas.width/2, y: canvas.height/2,
+            vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15,
+            life: 1.0, color: `hsl(${Math.random()*360}, 100%, 50%)`
+        });
     }
 
     setTimeout(() => {
@@ -1250,14 +1245,10 @@ function drawModernGoal(ctx, x, side) {
     
     ctx.lineJoin = "round";
     
-    // OTIMIZAÇÃO: Não desenhar rede em modo baixo
     if(!graphicsLow) {
         ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 1;
         ctx.beginPath();
-        for(let i=topY; i<=botY; i+=25) { ctx.moveTo(x, i); ctx.lineTo(backX, i); }
-        for(let i=0; i<=GOAL_DEPTH; i+=25) { 
-            let currentX = x + (side * i); ctx.moveTo(currentX, topY); ctx.lineTo(currentX, botY); 
-        }
+        for(let i=topY; i<=botY; i+=40) { ctx.moveTo(x, i); ctx.lineTo(backX, i); }
         ctx.stroke();
     }
 
@@ -1267,33 +1258,20 @@ function drawModernGoal(ctx, x, side) {
     ctx.moveTo(x, topY); ctx.lineTo(backX, topY);
     ctx.moveTo(x, botY); ctx.lineTo(backX, botY);
     ctx.stroke();
-    
-    ctx.fillStyle = "#eee";
-    ctx.beginPath(); ctx.arc(x, topY, graphicsLow ? 6 : 10, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x, botY, graphicsLow ? 6 : 10, 0, Math.PI*2); ctx.fill();
 }
 
 function checkPostCollision(entity) {
     const topPost = FIELD_H/2 - GOAL_H_HALF;
     const botPost = FIELD_H/2 + GOAL_H_HALF;
     const posts = [{x:0, y:topPost}, {x:0, y:botPost}, {x:FIELD_W, y:topPost}, {x:FIELD_W, y:botPost}];
-    const walls = [
-        {y: topPost, xStart: -GOAL_DEPTH, xEnd: 0}, {y: botPost, xStart: -GOAL_DEPTH, xEnd: 0},
-        {y: topPost, xStart: FIELD_W, xEnd: FIELD_W + GOAL_DEPTH}, {y: botPost, xStart: FIELD_W, xEnd: FIELD_W + GOAL_DEPTH}
-    ];
-    walls.forEach(w => {
-        if (entity.x >= Math.min(w.xStart, w.xEnd) - entity.r && entity.x <= Math.max(w.xStart, w.xEnd) + entity.r) {
-            let distY = Math.abs(entity.y - w.y);
-            if (distY < entity.r + 5) {
-                if (entity.y < w.y) entity.y = w.y - (entity.r + 5); else entity.y = w.y + (entity.r + 5);
-                if (entity === ball) entity.vy *= -0.5;
-            }
-        }
-    });
+    
     posts.forEach(p => {
         let dx = entity.x - p.x, dy = entity.y - p.y;
-        let dist = Math.sqrt(dx*dx + dy*dy);
-        if(dist < entity.r + 20) { 
+        let distSq = dx*dx + dy*dy;
+        let radiusSum = entity.r + 20;
+        
+        if(distSq < radiusSum * radiusSum) { 
+            let dist = Math.sqrt(distSq);
             let angle = Math.atan2(dy, dx);
             if(entity === ball) {
                 playSound('post');
@@ -1339,8 +1317,7 @@ function loop() {
         return; 
     }
 
-    // OTIMIZAÇÃO: clearRect é mais leve que fillRect em algumas GPUs
-    // mas fillRect garante fundo sólido sem trails
+    // LIMPA TELA EFICIENTE
     ctx.fillStyle = "#14532d"; 
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1401,6 +1378,8 @@ function loop() {
         checkPostCollision(ball);
         if(ball.y < ball.r) { ball.y = ball.r; ball.vy *= -0.8; }
         if(ball.y > FIELD_H - ball.r) { ball.y = FIELD_H - ball.r; ball.vy *= -0.8; }
+        
+        // GOL
         if(ball.x < ball.r || ball.x > FIELD_W - ball.r) {
             let topPostY = FIELD_H/2 - GOAL_H_HALF, botPostY = FIELD_H/2 + GOAL_H_HALF;
             let inGoalY = (ball.y > topPostY + ball.r) && (ball.y < botPostY - ball.r);
@@ -1423,6 +1402,7 @@ function loop() {
         if(now - lastNetworkUpdate > networkUpdateRate) {
             broadcast({ 
                 type: 'GAME_TICK', 
+                ts: now, // TIMESTAMP É ESSENCIAL PRO CLIENTE NÃO BUGAR
                 players: roomPlayers.map(p => ({id:p.id, x:Math.round(p.x), y:Math.round(p.y), r:p.r, nick:p.nick, team:p.team, isCaptain:p.isCaptain})),
                 ball: {x:Math.round(ball.x), y:Math.round(ball.y), r:ball.r},
                 score: score,
@@ -1431,26 +1411,33 @@ function loop() {
             lastNetworkUpdate = now;
         }
     } 
-    // --- LÓGICA DO CLIENTE (INTERPOLAÇÃO RÁPIDA) ---
+    // --- LÓGICA DO CLIENTE OTIMIZADA ---
     else if (!isHost && !isPaused) {
-        // Aumentei o lerpFactor para 0.4 para ficar mais responsivo
-        const lerpFactor = 0.4; 
+        // Interpolação Inteligente
+        const lerp = 0.35;
         
-        ball.x += (ball.tx - ball.x) * lerpFactor;
-        ball.y += (ball.ty - ball.y) * lerpFactor;
+        if (Math.abs(ball.tx - ball.x) < 2) ball.x = ball.tx;
+        else ball.x += (ball.tx - ball.x) * lerp;
+        
+        if (Math.abs(ball.ty - ball.y) < 2) ball.y = ball.ty;
+        else ball.y += (ball.ty - ball.y) * lerp;
 
         roomPlayers.forEach(p => {
             if(p.tx !== undefined && p.x > -5000) {
-                p.x += (p.tx - p.x) * lerpFactor;
-                p.y += (p.ty - p.y) * lerpFactor;
+                if(Math.abs(p.tx - p.x) < 2) p.x = p.tx;
+                else p.x += (p.tx - p.x) * lerp;
+
+                if(Math.abs(p.ty - p.y) < 2) p.y = p.ty;
+                else p.y += (p.ty - p.y) * lerp;
             }
         });
     }
 
+    // Partículas leves
     if(!graphicsLow && particles.length > 0) {
         for(let i=particles.length-1; i>=0; i--) {
-            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.05; // Morrem mais rápido
-            ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect((p.x|0), (p.y|0), 6, 6); 
+            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.05;
+            ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect((p.x|0), (p.y|0), 4, 4); 
             if(p.life <= 0) particles.splice(i, 1);
         }
         ctx.globalAlpha = 1.0;
@@ -1471,6 +1458,7 @@ function loop() {
         }
     }
 
+    // Campo - Sem sombras pesadas
     ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = graphicsLow ? 2 : 5; 
     ctx.strokeRect(0, 0, FIELD_W, FIELD_H);
     ctx.beginPath(); ctx.moveTo(FIELD_W/2, 0); ctx.lineTo(FIELD_W/2, FIELD_H); ctx.stroke();
@@ -1478,21 +1466,29 @@ function loop() {
 
     drawModernGoal(ctx, 0, -1); drawModernGoal(ctx, FIELD_W, 1);
 
-    // SOMBRAS REMOVIDAS SE GRAPHICSLOW = TRUE
-    if(!graphicsLow) { ctx.shadowBlur = 10; ctx.shadowColor = "rgba(0,0,0,0.3)"; }
+    // BOLA - Sombra fake (Círculo preto com alpha) é MUITO mais rápido que shadowBlur
+    if(!graphicsLow) { 
+        ctx.fillStyle = "rgba(0,0,0,0.3)"; 
+        ctx.beginPath(); ctx.arc(ball.x, ball.y + 5, ball.r + 2, 0, Math.PI*2); ctx.fill();
+    }
     
     ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc((ball.x|0), (ball.y|0), ball.r, 0, Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0; ctx.strokeStyle = "#111"; ctx.lineWidth = 2;
+    ctx.strokeStyle = "#111"; ctx.lineWidth = 2; ctx.stroke();
     
     roomPlayers.forEach(p => {
         if(p.x < -1000) return; 
         const px = p.x | 0; 
         const py = p.y | 0;
 
+        // Sombra Fake nos Players
+        if(!graphicsLow) {
+            ctx.fillStyle = "rgba(0,0,0,0.3)";
+            ctx.beginPath(); ctx.arc(px, py + 5, p.r + 2, 0, Math.PI*2); ctx.fill();
+        }
+
         ctx.fillStyle = p.team === 'azul' ? '#2563eb' : '#dc2626';
-        if(!graphicsLow) { ctx.shadowBlur = 8; ctx.shadowColor = p.team === 'azul' ? '#2563eb' : '#dc2626'; }
         ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2); ctx.fill();
-        ctx.shadowBlur = 0; ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
         
         ctx.fillStyle = "white"; ctx.font = "900 18px Arial"; ctx.textAlign = "center";
         ctx.fillText(p.nick, px, py - 40);
@@ -1507,10 +1503,8 @@ function loop() {
         const me = roomPlayers.find(p => p.id === myData.id);
         if(me && me.x > -5000) { cx = me.x|0; cy = me.y|0; } else { cx = ball.x|0; cy = ball.y|0; }
         ctx.save();
-        ctx.shadowColor = "black"; ctx.lineWidth = 8; ctx.strokeStyle = "black";
         ctx.fillStyle = "#facc15"; ctx.font = "italic 900 60px sans-serif";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.strokeText("JOGO PAUSADO", cx, cy);
         ctx.fillText("JOGO PAUSADO", cx, cy);
         ctx.restore();
     }
