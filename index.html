@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* OTIMIZAÇÃO CSS: GPU e Toque */
-        body { margin: 0; overflow: hidden; background: #052e16; touch-action: none; font-family: sans-serif; overscroll-behavior: none; }
+        body { margin: 0; overflow: hidden; background: #052e16; touch-action: none; font-family: sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
         
         canvas { 
             display: block; 
@@ -109,7 +109,7 @@
         #ingame-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 300; pointer-events: auto; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
 
         #error-msg { color: #ef4444; font-weight: bold; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px; display: none; }
-        #network-status { position: absolute; bottom: 10px; left: 10px; color: yellow; font-size: 10px; z-index: 999; text-shadow: 1px 1px 2px black; }
+        #network-status { position: absolute; bottom: 10px; left: 10px; color: yellow; font-size: 10px; z-index: 999; text-shadow: 1px 1px 2px black; font-family: monospace; }
 
         #credits-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.95); z-index: 500; pointer-events: auto; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
         .credits-box { background: #111; border: 2px solid #22c55e; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 0 50px rgba(34, 197, 94, 0.2); }
@@ -321,20 +321,23 @@
 </div>
 
 <script>
-// --- CONFIGURAÇÃO DE REDE OTIMIZADA PARA DISTÂNCIA ---
+// --- CONFIGURAÇÃO DE REDE OTIMIZADA (STUN GLOBAL E AGRESSIVO) ---
+// Isso força a achar o caminho mais curto (P2P) mesmo em distâncias longas
 const peerConfig = {
-    // Usar o broker público padrão, mas com ICE servers agressivos para forçar P2P
     host: '0.peerjs.com',
     port: 443,
     secure: true,
     config: {
         iceServers: [
-            { urls: 'stun:stun1.l.google.com:19302' }, // Servidor Google 1
-            { urls: 'stun:stun2.l.google.com:19302' }, // Servidor Google 2
-            { urls: 'stun:stun3.l.google.com:19302' }, // Servidor Google 3
-            { urls: 'stun:stun4.l.google.com:19302' }, // Servidor Google 4
-        ]
-    }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' } // Servidor extra para robustez
+        ],
+        iceCandidatePoolSize: 10 // Acelera a conexão inicial
+    },
+    debug: 1 // Nivel baixo de log para performance
 };
 
 let peer = null;
@@ -346,7 +349,8 @@ let myPeerId = null;
 let myData = { nick: '', id: '', isAdmin: false, team: 'spec', isCaptain: false, r: 24 };
 
 let lastNetworkUpdate = 0;
-const networkUpdateRate = 1000 / 30; // 30 TICKS/SEC
+// Aumentei um pouco a taxa para 25 ticks, mais estável em 3G/4G
+const networkUpdateRate = 1000 / 25; 
 
 function generateRoomCode() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -356,7 +360,7 @@ function generateRoomCode() {
 }
 
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d', { alpha: false }); 
+const ctx = canvas.getContext('2d', { alpha: false }); // alpha: false otimiza renderização
 const FIELD_W = 2200, FIELD_H = 1200;
 const GOAL_H_HALF = 160; 
 const GOAL_DEPTH = 80;
@@ -444,7 +448,7 @@ function createRoom() {
         isHost = true;
         myPeerId = id;
         enterRoomLobby(code, true);
-        document.getElementById('network-status').innerText = "Hospedando: " + code;
+        document.getElementById('network-status').innerText = "HOST: " + code;
     });
     
     peer.on('connection', (c) => {
@@ -459,7 +463,7 @@ function createRoom() {
                 broadcastRoomState();
             }
         });
-        // Enviar estado inicial rapidamente
+        // Enviar estado inicial
         c.send({ type: 'LOBBY_UPDATE', players: roomPlayers, isPaused: isPaused, score: score, timeLeft: timeLeft });
     });
     
@@ -486,10 +490,12 @@ function joinRoom() {
     peer.on('open', (id) => {
         myPeerId = id;
         
-        // --- OTIMIZAÇÃO CRÍTICA: reliable: false ---
-        // Isso faz a conexão agir como UDP. Pacotes perdidos não travam o jogo.
+        // --- OTIMIZAÇÃO MÁXIMA PARA REDE ---
+        // reliable: false = UDP (rápido)
+        // ordered: false = Não espera pacote perdido (Zero Lag)
         conn = peer.connect(hostId, {
-            reliable: false, // O SEGREDO DO "LISO"
+            reliable: false, 
+            ordered: false,
             serialization: 'json'
         });
         
@@ -497,7 +503,7 @@ function joinRoom() {
             isHost = false;
             conn.send({ type: 'JOIN', player: myData });
             enterRoomLobby(code, false);
-            document.getElementById('network-status').innerText = "Conectado a " + code;
+            document.getElementById('network-status').innerText = "CLIENTE: " + code;
         });
         
         conn.on('data', (data) => {
@@ -505,7 +511,7 @@ function joinRoom() {
         });
         
         conn.on('close', () => {
-            alert("O Host encerrou a sala!");
+            alert("Conexão perdida com o Host!");
             quitToMain();
         });
         
@@ -570,6 +576,7 @@ function handleClientData(data) {
         if(!isGameRunning) {
             roomPlayers = data.players; 
         } else {
+            // Sincronização parcial durante jogo
             data.players.forEach(srvP => {
                 let localP = roomPlayers.find(p => p.id === srvP.id);
                 if(localP) {
@@ -615,7 +622,7 @@ function handleClientData(data) {
         ball.tx = data.ball.x;
         ball.ty = data.ball.y;
         
-        // Se a bola teleportou muito longe (ex: gol), força a posição
+        // Teleport se a desync for muito grande
         if(Math.abs(ball.x - ball.tx) > 500) { ball.x = ball.tx; ball.y = ball.ty; }
 
         // Atualiza Players Alvo
@@ -938,12 +945,24 @@ function toggleChat() {
     chat.style.display = chat.style.display === 'flex' ? 'none' : 'flex';
 }
 
+// --- FIX DE LAG: LIMPEZA DE CHAT ---
 function appendMessageToAll(nick, msg) {
     const line = `<div><strong>${nick}:</strong> ${msg}</div>`;
+    
     const ingameDiv = document.getElementById('chat-msgs');
-    if(ingameDiv) { ingameDiv.insertAdjacentHTML('beforeend', line); ingameDiv.scrollTop = ingameDiv.scrollHeight; }
+    if(ingameDiv) { 
+        ingameDiv.insertAdjacentHTML('beforeend', line); 
+        // Remove mensagens antigas para não lagar o DOM
+        while(ingameDiv.children.length > 20) ingameDiv.removeChild(ingameDiv.firstChild);
+        ingameDiv.scrollTop = ingameDiv.scrollHeight; 
+    }
+    
     const lobbyDiv = document.getElementById('lobby-chat-msgs');
-    if(lobbyDiv) { lobbyDiv.insertAdjacentHTML('beforeend', line); lobbyDiv.scrollTop = lobbyDiv.scrollHeight; }
+    if(lobbyDiv) { 
+        lobbyDiv.insertAdjacentHTML('beforeend', line); 
+        while(lobbyDiv.children.length > 30) lobbyDiv.removeChild(lobbyDiv.firstChild);
+        lobbyDiv.scrollTop = lobbyDiv.scrollHeight; 
+    }
 }
 
 function sendChatMessage() {
@@ -1202,7 +1221,8 @@ function triggerGoal(scorer) {
     document.getElementById('goal-nick').innerText = scorer;
     document.getElementById('goal-container').style.display = 'block';
     
-    const particleCount = graphicsLow ? 10 : 40;
+    // OTIMIZAÇÃO: Menos particulas em mobile
+    const particleCount = graphicsLow ? 8 : 40;
     if(particles.length < 50) {
         for(let i=0; i<particleCount; i++) {
             particles.push({
@@ -1230,6 +1250,7 @@ function drawModernGoal(ctx, x, side) {
     
     ctx.lineJoin = "round";
     
+    // OTIMIZAÇÃO: Não desenhar rede em modo baixo
     if(!graphicsLow) {
         ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 1;
         ctx.beginPath();
@@ -1318,6 +1339,8 @@ function loop() {
         return; 
     }
 
+    // OTIMIZAÇÃO: clearRect é mais leve que fillRect em algumas GPUs
+    // mas fillRect garante fundo sólido sem trails
     ctx.fillStyle = "#14532d"; 
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1410,9 +1433,8 @@ function loop() {
     } 
     // --- LÓGICA DO CLIENTE (INTERPOLAÇÃO RÁPIDA) ---
     else if (!isHost && !isPaused) {
-        // Aumentei o lerpFactor para 0.35 (antes era 0.2)
-        // Isso faz o jogador "puxar" mais rápido para a posição real, reduzindo a sensação de atraso
-        const lerpFactor = 0.35; 
+        // Aumentei o lerpFactor para 0.4 para ficar mais responsivo
+        const lerpFactor = 0.4; 
         
         ball.x += (ball.tx - ball.x) * lerpFactor;
         ball.y += (ball.ty - ball.y) * lerpFactor;
@@ -1427,7 +1449,7 @@ function loop() {
 
     if(!graphicsLow && particles.length > 0) {
         for(let i=particles.length-1; i>=0; i--) {
-            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.02;
+            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.05; // Morrem mais rápido
             ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect((p.x|0), (p.y|0), 6, 6); 
             if(p.life <= 0) particles.splice(i, 1);
         }
@@ -1456,7 +1478,8 @@ function loop() {
 
     drawModernGoal(ctx, 0, -1); drawModernGoal(ctx, FIELD_W, 1);
 
-    if(!graphicsLow) { ctx.shadowBlur = 15; ctx.shadowColor = "rgba(0,0,0,0.4)"; }
+    // SOMBRAS REMOVIDAS SE GRAPHICSLOW = TRUE
+    if(!graphicsLow) { ctx.shadowBlur = 10; ctx.shadowColor = "rgba(0,0,0,0.3)"; }
     
     ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc((ball.x|0), (ball.y|0), ball.r, 0, Math.PI*2); ctx.fill();
     ctx.shadowBlur = 0; ctx.strokeStyle = "#111"; ctx.lineWidth = 2;
@@ -1467,7 +1490,7 @@ function loop() {
         const py = p.y | 0;
 
         ctx.fillStyle = p.team === 'azul' ? '#2563eb' : '#dc2626';
-        if(!graphicsLow) { ctx.shadowBlur = 10; ctx.shadowColor = p.team === 'azul' ? '#2563eb' : '#dc2626'; }
+        if(!graphicsLow) { ctx.shadowBlur = 8; ctx.shadowColor = p.team === 'azul' ? '#2563eb' : '#dc2626'; }
         ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2); ctx.fill();
         ctx.shadowBlur = 0; ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
         
