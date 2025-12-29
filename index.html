@@ -1251,11 +1251,23 @@ function processInputLocal() {
             me.vy = vy * 5.5;
             me.x += me.vx;
             me.y += me.vy;
+            
             // Limites básicos para não atravessar parede na predição
             if(me.x < me.r) me.x = me.r;
             if(me.x > FIELD_W - me.r) me.x = FIELD_W - me.r;
             if(me.y < me.r) me.y = me.r;
             if(me.y > FIELD_H - me.r) me.y = FIELD_H - me.r;
+
+            // FIX: COLISÃO CLIENTE (VISUAL)
+            // Isso impede que você atravesse a bola na sua tela enquanto o servidor não responde
+            let dx = ball.x - me.x, dy = ball.y - me.y;
+            let d = Math.sqrt(dx*dx+dy*dy);
+            if(d < me.r + ball.r) {
+                let ang = Math.atan2(dy, dx);
+                let lap = (me.r + ball.r) - d;
+                me.x -= Math.cos(ang) * lap;
+                me.y -= Math.sin(ang) * lap;
+            }
         }
     }
     
@@ -1334,9 +1346,16 @@ function loop() {
             let dx = ball.x - p.x, dy = ball.y - p.y, dist = Math.sqrt(dx*dx + dy*dy);
             if(dist < p.r + ball.r) { 
                 let ang = Math.atan2(dy, dx), overlap = (p.r + ball.r) - dist;
-                ball.x += Math.cos(ang) * overlap; ball.y += Math.sin(ang) * overlap;
-                p.x -= Math.cos(ang) * (overlap * 0.5); p.y -= Math.sin(ang) * (overlap * 0.5);
-                ball.vx += Math.cos(ang)*0.6; ball.vy += Math.sin(ang)*0.6;
+                
+                // FIX: FÍSICA HOST
+                // A bola é empurrada 100% para fora (para não prender dentro do player)
+                ball.x += Math.cos(ang) * (overlap + 1); 
+                ball.y += Math.sin(ang) * (overlap + 1);
+                
+                // Aumentei a transferência de velocidade para o chute ficar mais forte
+                ball.vx += p.vx + Math.cos(ang)*2; 
+                ball.vy += p.vy + Math.sin(ang)*2;
+
                 lastTouchNick = p.nick; 
             }
         });
