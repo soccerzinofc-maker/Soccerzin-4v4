@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOCCERZIN 4V4 - PERFORMANCE MAX</title>
+    <title>SOCCERZIN 4V4 - ULTRA PERFORMANCE</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -14,8 +14,7 @@
             display: block; 
             background: #14532d;
             will-change: transform;
-            /* Força renderização nítida sem antialiasing pesado */
-            image-rendering: pixelated; 
+            image-rendering: pixelated; /* Fica pixelado mas muito rápido */
         }
         
         #orientacao-aviso {
@@ -30,29 +29,28 @@
         .btn-game { 
             position: absolute; pointer-events: auto; width: 85px; height: 85px; 
             border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-            font-weight: 900; color: white; border: 3px solid rgba(255,255,255,0.6); z-index: 20;
-            background: rgba(0,0,0,0.3); /* Removido gradiente pesado */
-            backdrop-filter: blur(2px);
-            transition: transform 0.05s;
+            font-weight: 900; color: white; border: 2px solid rgba(255,255,255,0.4); z-index: 20;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: none; /* Removido Blur para performance */
         }
-        .btn-game:active { transform: translateY(4px); background: rgba(255,255,255,0.1); }
+        .btn-game:active { transform: scale(0.95); background: rgba(255,255,255,0.2); }
         
         #kickBtn { background: #ea580c; display: none; }
         #passBtn { background: #2563eb; display: none; }
 
         #joy-base { 
             position: absolute; width: 125px; height: 125px; 
-            background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); 
+            background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); 
             border-radius: 50%; pointer-events: auto; 
             display: none; 
         }
-        #joy-stick { position: absolute; width: 45%; height: 45%; background: rgba(255,255,255,0.8); border-radius: 50%; top: 27.5%; left: 27.5%; pointer-events: none; }
+        #joy-stick { position: absolute; width: 45%; height: 45%; background: rgba(255,255,255,0.6); border-radius: 50%; top: 27.5%; left: 27.5%; pointer-events: none; }
 
         #top-left-controls { position: absolute; top: 20px; left: 20px; display: flex; gap: 8px; pointer-events: auto; flex-wrap: wrap; max-width: 300px; }
         
         .btn-hud-corner { 
-            background: rgba(0,0,0,0.6); color: white; border-radius: 10px; padding: 8px 12px; 
-            font-size: 14px; font-weight: bold; border: 1px solid white; cursor: pointer; 
+            background: rgba(0,0,0,0.6); color: white; border-radius: 8px; padding: 6px 10px; 
+            font-size: 12px; font-weight: bold; border: 1px solid white; cursor: pointer; 
             display: flex; align-items: center; justify-content: center;
         }
 
@@ -185,7 +183,7 @@
 </div>
 
 <div class="ui-layer">
-    <div id="scoreboard" class="hidden absolute top-5 left-1/2 -translate-x-1/2 bg-black/80 px-6 py-1 rounded-full border-2 border-white flex gap-6 text-2xl font-black text-white italic">
+    <div id="scoreboard" class="hidden absolute top-5 left-1/2 -translate-x-1/2 bg-black/80 px-6 py-1 rounded-full border border-white/30 flex gap-6 text-2xl font-black text-white italic">
         <div id="timer" class="text-yellow-400 border-r border-white/20 pr-4">05:00</div>
         <span class="text-blue-500" id="scoreA">0</span><span class="text-red-500" id="scoreV">0</span>
     </div>
@@ -218,7 +216,7 @@
         
         <div id="screen-main" class="menu-screen">
             <h1 class="text-6xl font-black italic mb-2">SOCCERZIN <span class="text-green-500">4V4</span></h1>
-            <p class="text-green-400 text-xs font-bold mb-6 tracking-widest">PERFORMANCE MODE</p>
+            <p class="text-green-400 text-xs font-bold mb-6 tracking-widest">PERFORMANCE LITE</p>
             <input type="text" id="playerNick" class="bg-white/5 border border-white/10 text-white px-4 py-4 rounded-2xl mb-6 w-72 text-center font-bold text-xl" placeholder="SEU NICKNAME" maxlength="12">
             
             <button onclick="goToRoomMenu()" class="bg-green-600 text-black px-10 py-5 rounded-2xl font-black text-2xl shadow-lg hover:scale-105 transition mb-6 w-72">JOGAR SALAS</button>
@@ -342,7 +340,7 @@ function generateRoomCode() {
 }
 
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true }); // OTIMIZAÇÃO MAXIMA
+const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
 const FIELD_W = 2200, FIELD_H = 1200;
 const GOAL_H_HALF = 160; 
 const GOAL_DEPTH = 80;
@@ -529,17 +527,17 @@ function updateGameInfoDOM(t, s) {
 
 function handleClientData(data) {
     if(data.type === 'LOBBY_UPDATE') {
-        // Atualiza a lista, mas tenta manter propriedades locais se necessário
         const newPlayers = data.players;
-        
-        // Sincronização inteligente para evitar reset visual no menu
         newPlayers.forEach(np => {
             const existing = roomPlayers.find(ep => ep.id === np.id);
             if(existing) {
-                // Mantém coordenadas interpoladas locais para evitar pulos
                 if(document.getElementById('lobby').style.display === 'none') {
-                    np.x = existing.x;
-                    np.y = existing.y;
+                    // Mantém local se for eu (para evitar glitch)
+                    if(np.id === myData.id) {
+                         np.x = existing.x; np.y = existing.y;
+                    } else {
+                         np.x = existing.x; np.y = existing.y;
+                    }
                 }
             }
         });
@@ -555,9 +553,7 @@ function handleClientData(data) {
             myData.isCaptain = me.isCaptain;
             player.time = (myData.team === 'spec') ? null : myData.team;
             
-            if(data.gameRunning) {
-                updateControlsVisibility();
-            }
+            if(data.gameRunning) updateControlsVisibility();
         }
         updateLobbyUI();
         
@@ -571,17 +567,25 @@ function handleClientData(data) {
     }
     
     if(data.type === 'GAME_TICK') {
-        // INTERPOLAÇÃO DE DADOS (SMOOTHING)
-        // Em vez de substituir, definimos o alvo
+        // CORREÇÃO DE LAG: Interpolação suave para outros, correção leve para mim
         data.players.forEach(serverP => {
             const localP = roomPlayers.find(lp => lp.id === serverP.id);
             if(localP) {
                 localP.targetX = serverP.x;
                 localP.targetY = serverP.y;
                 localP.team = serverP.team;
-                // Se estiver muito longe (teleporte/spawn), pula direto
-                if (Math.abs(localP.x - serverP.x) > 300) {
-                    localP.x = serverP.x; localP.y = serverP.y;
+                
+                // Se sou eu, só corrijo se a diferença for absurda (Reconciliação básica)
+                if(localP.id === myData.id) {
+                    const dist = Math.hypot(localP.x - serverP.x, localP.y - serverP.y);
+                    if(dist > 100) { // Tolerância alta para evitar puxada de volta
+                        localP.x = serverP.x; localP.y = serverP.y;
+                    }
+                } else {
+                    // Se estiver muito longe (teleporte/spawn), pula direto
+                    if (Math.abs(localP.x - serverP.x) > 300) {
+                        localP.x = serverP.x; localP.y = serverP.y;
+                    }
                 }
             }
         });
@@ -978,10 +982,7 @@ function toggleFullScreen() {
     else if (document.exitFullscreen) document.exitFullscreen();
 }
 
-// ULTRA OTIMIZAÇÃO: RESIZE FIXO
 function resize() { 
-    // TRAVA A RESOLUÇÃO EM 1.0 (Pixel nativo)
-    // Isso evita que celulares com tela retina (3x pixels) explodam a GPU
     let ratio = 1.0; 
     canvas.width = window.innerWidth * ratio; 
     canvas.height = window.innerHeight * ratio; 
@@ -1154,14 +1155,13 @@ function triggerGoal(scorer) {
     document.getElementById('goal-nick').innerText = scorer;
     document.getElementById('goal-container').style.display = 'block';
     
-    // REDUZIDO PARA APENAS 10 PARTÍCULAS
-    const particleCount = 10;
-    if(particles.length < 20) {
+    const particleCount = 8; // MÍNIMO DE PARTÍCULAS
+    if(particles.length < 15) {
         for(let i=0; i<particleCount; i++) {
             particles.push({
                 x: canvas.width/2, y: canvas.height/2,
                 vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15,
-                life: 1.0, color: `hsl(${Math.random()*360}, 100%, 50%)`
+                life: 1.0, color: `hsl(${Math.random()*360}, 80%, 50%)`
             });
         }
     }
@@ -1181,19 +1181,14 @@ function drawModernGoal(ctx, x, side) {
     const botY = FIELD_H/2 + GOAL_H_HALF;
     const backX = x + (side * GOAL_DEPTH);
     
-    // REDE SIMPLIFICADA (Apenas contorno, sem linhas internas complexas)
+    // REDE ULTRA SIMPLES (LINHAS BRANCAS APENAS)
     ctx.lineWidth = 4;
-    ctx.strokeStyle = "#fff";
-    
+    ctx.strokeStyle = "#ddd";
     ctx.beginPath();
     ctx.moveTo(backX, topY); ctx.lineTo(backX, botY);
     ctx.moveTo(x, topY); ctx.lineTo(backX, topY);
     ctx.moveTo(x, botY); ctx.lineTo(backX, botY);
     ctx.stroke();
-    
-    ctx.fillStyle = "#eee";
-    ctx.beginPath(); ctx.arc(x, topY, 8, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x, botY, 8, 0, Math.PI*2); ctx.fill();
 }
 
 function checkPostCollision(entity) {
@@ -1248,6 +1243,22 @@ function processInputLocal() {
         vy = Math.sin(joy.angle) * joy.force;
     }
     
+    // PREDIÇÃO DO CLIENTE: Aplica física local imediatamente!
+    if(!isHost && !isPaused) {
+        const me = roomPlayers.find(p => p.id === myData.id);
+        if(me) {
+            me.vx = vx * 5.5; // Velocidade aproximada
+            me.vy = vy * 5.5;
+            me.x += me.vx;
+            me.y += me.vy;
+            // Limites básicos para não atravessar parede na predição
+            if(me.x < me.r) me.x = me.r;
+            if(me.x > FIELD_W - me.r) me.x = FIELD_W - me.r;
+            if(me.y < me.r) me.y = me.r;
+            if(me.y > FIELD_H - me.r) me.y = FIELD_H - me.r;
+        }
+    }
+    
     if((vx !== 0 || vy !== 0 || kickRequest > 0) && isHost) {
         const me = roomPlayers.find(p => p.id === myPeerId);
         if(me) me.lastAction = Date.now();
@@ -1262,19 +1273,17 @@ function loop() {
         return; 
     }
 
-    // INTERPOLAÇÃO CLIENTE (SUAVIZA O LAG)
     if(!isHost) {
-        // Suaviza jogadores remotos (Lerp 0.2)
+        // INTERPOLAÇÃO OTIMIZADA: Mais suave (0.15) e SÓ PARA OS OUTROS
         roomPlayers.forEach(p => {
             if(p.id !== myData.id && p.targetX !== undefined) {
-                p.x += (p.targetX - p.x) * 0.2;
-                p.y += (p.targetY - p.y) * 0.2;
+                p.x += (p.targetX - p.x) * 0.15;
+                p.y += (p.targetY - p.y) * 0.15;
             }
         });
-        // Suaviza bola
         if(ball.targetX !== undefined) {
-            ball.x += (ball.targetX - ball.x) * 0.2;
-            ball.y += (ball.targetY - ball.y) * 0.2;
+            ball.x += (ball.targetX - ball.x) * 0.15;
+            ball.y += (ball.targetY - ball.y) * 0.15;
         }
     }
 
@@ -1308,6 +1317,7 @@ function loop() {
             p.x += p.vx; p.y += p.vy;
             checkPostCollision(p);
 
+            // Colisões Bola/Player
             if(p.input.kick > 0) {
                  const dx = ball.x - p.x;
                  const dy = ball.y - p.y;
@@ -1370,10 +1380,9 @@ function loop() {
 
     if(particles.length > 0) {
         for(let i=particles.length-1; i>=0; i--) {
-            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.05; // Morrem rápido
+            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.05; 
             ctx.fillStyle = p.color; 
-            // Sem Alpha Complexo
-            ctx.fillRect((p.x|0), (p.y|0), 6, 6); 
+            ctx.fillRect((p.x|0), (p.y|0), 8, 8); // Quadrados simples
             if(p.life <= 0) particles.splice(i, 1);
         }
     }
@@ -1387,24 +1396,22 @@ function loop() {
     } else {
         const me = roomPlayers.find(p => p.id === myData.id);
         if(me && me.team && me.team !== 'spec' && me.x > -5000) {
-             // OTIMIZAÇÃO: Coordenadas inteiras (| 0)
              ctx.translate((-me.x|0), (-me.y|0)); 
         } else {
              ctx.translate((-ball.x|0), (-ball.y|0)); 
         }
     }
 
-    ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 4;
+    // DESENHO SIMPLIFICADO
+    ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 4;
     ctx.strokeRect(0, 0, FIELD_W, FIELD_H);
     ctx.beginPath(); ctx.moveTo(FIELD_W/2, 0); ctx.lineTo(FIELD_W/2, FIELD_H); ctx.stroke();
     ctx.beginPath(); ctx.arc(FIELD_W/2, FIELD_H/2, 130, 0, Math.PI*2); ctx.stroke();
 
     drawModernGoal(ctx, 0, -1); drawModernGoal(ctx, FIELD_W, 1);
 
-    // SEM SHADOWBLUR (Causa de Lag)
-    
+    // BOLA (SEM STROKE)
     ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc((ball.x|0), (ball.y|0), ball.r, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = "#111"; ctx.lineWidth = 2; ctx.stroke();
     
     roomPlayers.forEach(p => {
         if(p.x < -1000) return; 
@@ -1413,9 +1420,9 @@ function loop() {
 
         ctx.fillStyle = p.team === 'azul' ? '#2563eb' : '#dc2626';
         ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
         
-        ctx.fillStyle = "white"; ctx.font = "900 18px Arial"; ctx.textAlign = "center";
+        // NICKNAME SEM BORDAS PESADAS
+        ctx.fillStyle = "white"; ctx.font = "bold 16px Arial"; ctx.textAlign = "center";
         ctx.fillText(p.nick, px, py - 40);
         if(p.isCaptain) ctx.fillText("👑", px, py - 60);
         if(p.id === myData.id) {
@@ -1427,13 +1434,9 @@ function loop() {
         let cx = 0, cy = 0;
         const me = roomPlayers.find(p => p.id === myData.id);
         if(me && me.x > -5000) { cx = me.x|0; cy = me.y|0; } else { cx = ball.x|0; cy = ball.y|0; }
-        ctx.save();
-        ctx.lineWidth = 4; ctx.strokeStyle = "black";
         ctx.fillStyle = "#facc15"; ctx.font = "italic 900 60px sans-serif";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.strokeText("JOGO PAUSADO", cx, cy);
         ctx.fillText("JOGO PAUSADO", cx, cy);
-        ctx.restore();
     }
     ctx.restore();
     requestAnimationFrame(loop);
