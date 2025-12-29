@@ -330,7 +330,8 @@ let myPeerId = null;
 let myData = { nick: '', id: '', isAdmin: false, team: 'spec', isCaptain: false, r: 24 };
 
 let lastNetworkUpdate = 0;
-const networkUpdateRate = 1000 / 30; // 30 TICKS/SEC
+// AUMENTADO PARA 45 TICKS (MAIS FLUIDEZ NA REDE)
+const networkUpdateRate = 1000 / 45; 
 
 function generateRoomCode() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -1258,8 +1259,9 @@ function processInputLocal() {
             if(me.y < me.r) me.y = me.r;
             if(me.y > FIELD_H - me.r) me.y = FIELD_H - me.r;
 
-            // FIX: COLISÃO CLIENTE (VISUAL)
-            // Isso impede que você atravesse a bola na sua tela enquanto o servidor não responde
+            // FIX: COLISÃO CLIENTE (VISUAL) 1000%
+            
+            // 1. Colisão com a BOLA (para não atravessar ela)
             let dx = ball.x - me.x, dy = ball.y - me.y;
             let d = Math.sqrt(dx*dx+dy*dy);
             if(d < me.r + ball.r) {
@@ -1268,6 +1270,25 @@ function processInputLocal() {
                 me.x -= Math.cos(ang) * lap;
                 me.y -= Math.sin(ang) * lap;
             }
+
+            // 2. Colisão com OUTROS JOGADORES (A MÁGICA)
+            roomPlayers.forEach(other => {
+                if(other.id !== me.id && other.x > -1000) {
+                     let odx = other.x - me.x;
+                     let ody = other.y - me.y;
+                     let odist = Math.sqrt(odx*odx + ody*ody);
+                     let minDist = me.r + other.r;
+                     
+                     if(odist < minDist) {
+                         // Empurra meu player para fora do outro localmente
+                         let oang = Math.atan2(ody, odx);
+                         let ooverlap = minDist - odist;
+                         // Empurramos 100% nós mesmos, pois não controlamos o outro
+                         me.x -= Math.cos(oang) * ooverlap;
+                         me.y -= Math.sin(oang) * ooverlap;
+                     }
+                }
+            });
         }
     }
     
@@ -1286,16 +1307,16 @@ function loop() {
     }
 
     if(!isHost) {
-        // INTERPOLAÇÃO OTIMIZADA: Mais suave (0.15) e SÓ PARA OS OUTROS
+        // INTERPOLAÇÃO OTIMIZADA: Mais rápida (0.25) para inimigos não deslizarem
         roomPlayers.forEach(p => {
             if(p.id !== myData.id && p.targetX !== undefined) {
-                p.x += (p.targetX - p.x) * 0.15;
-                p.y += (p.targetY - p.y) * 0.15;
+                p.x += (p.targetX - p.x) * 0.25;
+                p.y += (p.targetY - p.y) * 0.25;
             }
         });
         if(ball.targetX !== undefined) {
-            ball.x += (ball.targetX - ball.x) * 0.15;
-            ball.y += (ball.targetY - ball.y) * 0.15;
+            ball.x += (ball.targetX - ball.x) * 0.25;
+            ball.y += (ball.targetY - ball.y) * 0.25;
         }
     }
 
