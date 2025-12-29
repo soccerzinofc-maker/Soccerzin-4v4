@@ -3,15 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOCCERZIN 4V4 - ZERO DELAY V4 (TURBO)</title>
+    <title>SOCCERZIN 4V4 - ZERO DELAY V3 (FIX)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* OTIMIZAÇÃO MAXIMA */
-        body { margin: 0; overflow: hidden; background: #0b1e11; touch-action: none; font-family: sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
-        canvas { display: block; background: #1a4d2e; will-change: transform; transform: translateZ(0); } /* Aceleração de Hardware */
+        /* OTIMIZAÇÃO CSS: GPU e Toque */
+        body { margin: 0; overflow: hidden; background: #052e16; touch-action: none; font-family: sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
         
-        #orientacao-aviso { display: none; position: fixed; inset: 0; background: #000; z-index: 999; color: white; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        canvas { 
+            display: block; 
+            background: #14532d;
+            will-change: transform;
+            transform: translateZ(0); 
+        }
+        
+        #orientacao-aviso {
+            display: none; position: fixed; inset: 0; background: #000; z-index: 999;
+            color: white; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        }
         @media (orientation: portrait) { #orientacao-aviso { display: flex; } }
 
         .ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
@@ -20,95 +29,185 @@
         .btn-game { 
             position: absolute; pointer-events: auto; width: 85px; height: 85px; 
             border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-            font-weight: 900; color: white; border: 3px solid rgba(255,255,255,0.5); z-index: 20;
-            background: rgba(0,0,0,0.3); /* Removido gradiente pesado */
+            font-weight: 900; color: white; border: 3px solid rgba(255,255,255,0.8); z-index: 20;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.3), inset 0 2px 10px rgba(255,255,255,0.2);
+            transition: transform 0.05s;
         }
-        .btn-game:active { transform: scale(0.95); background: rgba(255,255,255,0.2); }
+        .btn-game:active { transform: translateY(4px); }
         
-        #kickBtn { display: none; background: rgba(234, 88, 12, 0.8); }
-        #passBtn { display: none; background: rgba(37, 99, 235, 0.8); }
+        #kickBtn { background: linear-gradient(145deg, #ea580c, #9a3412); display: none; }
+        #passBtn { background: linear-gradient(145deg, #2563eb, #1e40af); display: none; }
 
         #joy-base { 
             position: absolute; width: 125px; height: 125px; 
-            background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); 
-            border-radius: 50%; pointer-events: auto; display: none; 
+            background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); 
+            backdrop-filter: blur(5px); border-radius: 50%; pointer-events: auto; 
+            display: none; 
         }
-        #joy-stick { position: absolute; width: 45%; height: 45%; background: rgba(255,255,255,0.8); border-radius: 50%; top: 27.5%; left: 27.5%; pointer-events: none; }
+        #joy-stick { position: absolute; width: 45%; height: 45%; background: radial-gradient(circle, #fff, #cbd5e1); border-radius: 50%; top: 27.5%; left: 27.5%; pointer-events: none; }
 
         #top-left-controls { position: absolute; top: 20px; left: 20px; display: flex; gap: 8px; pointer-events: auto; flex-wrap: wrap; max-width: 300px; }
-        .btn-hud-corner { background: rgba(0,0,0,0.6); color: white; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: bold; border: 1px solid rgba(255,255,255,0.3); cursor: pointer; }
+        
+        .btn-hud-corner { 
+            background: rgba(0,0,0,0.6); color: white; border-radius: 10px; padding: 8px 12px; 
+            font-size: 14px; font-weight: bold; border: 1px solid white; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        .btn-hud-corner:hover { background: rgba(255,255,255,0.2); }
 
-        #chat-container { position: absolute; top: 80px; left: 20px; width: 250px; height: 150px; background: rgba(0,0,0,0.5); border-radius: 10px; pointer-events: auto; display: none; flex-direction: column; padding: 10px; }
-        #chat-msgs { flex: 1; overflow-y: auto; color: white; font-size: 12px; margin-bottom: 5px; text-shadow: 1px 1px 0 #000; }
+        #chat-container { position: absolute; top: 80px; left: 20px; width: 250px; height: 150px; background: rgba(0,0,0,0.5); border-radius: 10px; pointer-events: auto; display: none; flex-direction: column; padding: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        #chat-msgs { flex: 1; overflow-y: auto; color: white; font-size: 12px; margin-bottom: 5px; text-shadow: 1px 1px 1px black; }
         #chat-input-row { display: flex; gap: 5px; }
-        #chat-input { background: rgba(0,0,0,0.5); border: 1px solid #555; color: white; padding: 4px; border-radius: 5px; flex: 1; font-size: 12px; }
+        #chat-input { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 4px 8px; border-radius: 5px; flex: 1; font-size: 12px; }
+        #chat-send { background: #22c55e; color: black; font-weight: bold; padding: 4px 10px; border-radius: 5px; font-size: 12px; }
         
         .lobby-wrapper { display: flex; flex-direction: column; height: 100vh; padding: 10px; box-sizing: border-box; }
-        .lobby-content { flex: 1; overflow-y: auto; }
+        .lobby-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
         
-        .menu-screen { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; }
-        .team-column { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 5px; padding: 5px; width: 30%; height: 100%; overflow-y: auto; min-height: 150px; }
-        
-        .player-card { background: rgba(255,255,255,0.05); margin-bottom: 3px; padding: 5px; border-radius: 3px; font-size: 11px; color: white; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .admin-options { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); }
-        .admin-row { display: flex; gap: 2px; width: 100%; }
-        .admin-btn { flex: 1; padding: 4px; font-size: 9px; font-weight: bold; border-radius: 3px; cursor: pointer; text-align: center; color: white; }
+        .lobby-chat-box {
+            background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px; width: 100%; max-width: 800px; height: 140px;
+            display: flex; flex-direction: column; margin: 10px auto 0 auto; pointer-events: auto;
+            flex-shrink: 0;
+        }
+        .lobby-msgs { flex: 1; overflow-y: auto; padding: 10px; color: white; font-size: 14px; text-align: left; }
+        .lobby-input-area { display: flex; padding: 10px; gap: 5px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .lobby-input { flex: 1; background: rgba(255,255,255,0.1); color: white; border: none; padding: 8px; border-radius: 5px; outline: none; }
+
+        .editing { border: 4px dashed #facc15 !important; filter: brightness(1.2); display: flex !important; }
+        .selected-edit { border: 6px solid #4ade80 !important; box-shadow: 0 0 20px #4ade80; }
+
+        #edit-panel { 
+            display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.95); padding: 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
+            pointer-events: auto; z-index: 100; width: 300px;
+        }
 
         #goal-container { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; display: none; z-index: 200; pointer-events: none; }
-        #goal-title { color: #facc15; font-size: 80px; font-weight: 900; margin: 0; text-shadow: 2px 2px 0 #000; }
+        #goal-title { color: #facc15; font-size: 100px; font-weight: 900; text-shadow: 0 10px 20px rgba(0,0,0,0.8); margin: 0; animation: goalAnim 0.5s infinite alternate; }
+        @keyframes goalAnim { 0% { transform: scale(1) rotate(-2deg); } 100% { transform: scale(1.1) rotate(2deg); } }
+
+        .menu-screen { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s; }
+        .team-column { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px; width: 30%; height: 100%; overflow-y: auto; min-height: 200px; }
         
-        #ingame-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.9); z-index: 300; pointer-events: auto; flex-direction: column; align-items: center; justify-content: center; }
-        #network-status { position: absolute; bottom: 5px; left: 5px; color: #ffff00; font-size: 10px; z-index: 999; font-family: monospace; text-shadow: 1px 1px 0 #000; }
+        .player-card { 
+            background: rgba(0,0,0,0.6); margin-bottom: 5px; padding: 8px; border-radius: 5px; 
+            display: flex; flex-direction: column; font-size: 12px; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .player-header { display: flex; justify-content: space-between; align-items: center; width: 100%; cursor: pointer; }
+        .admin-options { 
+            display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 8px; 
+            border-top: 1px solid rgba(255,255,255,0.2); 
+        }
+        .admin-row { display: flex; gap: 4px; width: 100%; }
+        .admin-btn { flex: 1; padding: 6px; font-size: 10px; font-weight: bold; border-radius: 4px; cursor: pointer; text-align: center; color: white; display: flex; align-items: center; justify-content: center;}
         
-        .editing { border: 2px dashed #facc15 !important; }
-        #edit-panel { display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: #111; padding: 10px; border-radius: 10px; z-index: 100; width: 280px; pointer-events: auto; color: white; }
+        #ingame-top-right { position: absolute; top: 20px; right: 20px; display: none; gap: 10px; pointer-events: auto; }
+        .btn-top { background: rgba(0,0,0,0.6); color: white; border: 1px solid white; padding: 8px 12px; border-radius: 10px; font-weight: bold; font-size: 12px; cursor: pointer; }
+        .btn-top:hover { background: rgba(255,255,255,0.2); }
+
+        #ingame-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 300; pointer-events: auto; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+
+        #error-msg { color: #ef4444; font-weight: bold; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px; display: none; }
+        #network-status { position: absolute; bottom: 10px; left: 10px; color: yellow; font-size: 10px; z-index: 999; text-shadow: 1px 1px 2px black; font-family: monospace; }
+
+        #credits-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.95); z-index: 500; pointer-events: auto; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
+        .credits-box { background: #111; border: 2px solid #22c55e; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 0 50px rgba(34, 197, 94, 0.2); }
     </style>
 </head>
 <body>
 
-<div id="orientacao-aviso">📱<h2 class="text-xl font-bold mt-4">VIRE O CELULAR</h2></div>
+<audio id="menu-music" loop>
+    <source src="https://cdn.pixabay.com/audio/2022/11/22/audio_febc508520.mp3" type="audio/mp3">
+</audio>
+
+<div id="orientacao-aviso">📱<h2 class="text-xl font-bold mt-4 italic">VIRE O CELULAR</h2></div>
 <div id="network-status">Desconectado</div>
 
 <canvas id="game"></canvas>
 
 <div id="goal-container">
     <h1 id="goal-title">GOL!</h1>
-    <p id="goal-nick" class="text-white text-3xl font-black italic uppercase tracking-wider"></p>
+    <p id="goal-nick" class="text-white text-3xl font-black italic shadow-lg uppercase tracking-wider drop-shadow-md"></p>
 </div>
 
-<div id="edit-panel">
-    <h3 class="font-bold text-center mb-2 text-sm">HUD EDITOR</h3>
-    <input type="range" id="size-slider" min="40" max="180" oninput="updateItemSize()" class="w-full">
-    <button onclick="toggleHudEdit()" class="mt-4 bg-green-600 w-full py-1 rounded text-xs font-bold">SALVAR</button>
+<div id="credits-modal">
+    <div class="credits-box">
+        <h2 class="text-4xl font-black italic text-green-500 mb-6">CRÉDITOS</h2>
+        <p class="text-white text-xl font-bold mb-2">DOLLYKKJ</p>
+        <p class="text-gray-400 text-sm mb-8">DESENVOLVEDOR</p>
+        <button onclick="toggleCredits()" class="bg-white text-black px-8 py-2 rounded-full font-bold hover:bg-gray-200">FECHAR</button>
+    </div>
+</div>
+
+<div id="edit-panel" class="text-white">
+    <div class="flex justify-between items-center mb-2">
+        <h3 class="font-bold text-green-400 italic text-sm">HUD EDITOR</h3>
+    </div>
+    <p class="text-[10px] text-gray-400 mb-2">Toque e arraste os botões.</p>
+    <input type="range" id="size-slider" min="40" max="180" oninput="updateItemSize()" class="w-full accent-green-500">
+    <input type="range" id="zoom-slider" min="0.5" max="1.5" step="0.05" oninput="updateZoom()" class="w-full mt-2 accent-green-500">
+    <button onclick="toggleHudEdit()" class="mt-4 bg-green-500 text-black px-6 py-2 rounded-xl font-black w-full text-xs">SALVAR & SAIR</button>
 </div>
 
 <div id="ingame-modal" class="text-white">
-    <h2 class="text-2xl font-black italic mb-4 text-green-500">PAUSA / MENU</h2>
-    <div id="admin-game-controls" class="flex flex-col gap-3 mb-4 w-64" style="display: none;">
-        <button onclick="resetMatch()" class="bg-yellow-600 py-2 rounded font-bold">🔄 RESETAR</button>
-        <button onclick="togglePause()" id="btn-pause" class="bg-blue-600 py-2 rounded font-bold">⏸ PAUSAR</button>
-        <button onclick="cancelMatch()" class="bg-red-700 py-2 rounded font-bold">❌ ENCERRAR</button>
+    <h2 class="text-3xl font-black italic mb-6 text-green-500">GERENCIAR SALA</h2>
+    
+    <div class="flex w-full px-10 gap-4 mb-6 justify-center" style="max-width: 900px; height: 300px;">
+        <div class="team-column border-blue-500/30">
+            <h3 class="text-blue-500 font-black text-center mb-2">TIME AZUL</h3>
+            <div id="ingame-list-blue" class="flex flex-col gap-2"></div>
+        </div>
+        <div class="team-column border-white/30 bg-black/40">
+            <h3 class="text-white font-black text-center mb-2">ESPECTADORES</h3>
+            <div id="ingame-list-spec" class="flex flex-col gap-2"></div>
+        </div>
+        <div class="team-column border-red-500/30">
+            <h3 class="text-red-500 font-black text-center mb-2">TIME VERMELHO</h3>
+            <div id="ingame-list-red" class="flex flex-col gap-2"></div>
+        </div>
     </div>
-    <button onclick="toggleIngameManager()" class="bg-white/20 px-8 py-2 rounded font-bold border border-white/20">FECHAR</button>
+
+    <div id="admin-game-controls" class="flex flex-wrap justify-center gap-4 mb-6 w-full max-w-2xl px-4" style="display: none;">
+        <button onclick="resetMatch()" class="bg-yellow-500 text-black px-6 py-3 rounded-xl font-bold hover:bg-yellow-400 shadow-lg grow">
+            🔄 RESETAR
+        </button>
+        <button onclick="togglePause()" id="btn-pause" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-500 shadow-lg grow">
+            ⏸ PAUSAR
+        </button>
+        <button onclick="cancelMatch()" class="bg-red-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-600 shadow-lg grow border border-red-500">
+            ❌ CANCELAR
+        </button>
+    </div>
+
+    <div class="flex gap-2 mb-4">
+        <button onclick="toggleGraphics()" id="btn-graphics-ingame" class="bg-purple-600 text-white px-6 py-2 rounded-xl font-bold">GRÁFICOS: ALTO</button>
+        <button onclick="toggleIngameManager()" class="bg-white/20 text-white px-8 py-3 rounded-xl font-bold border border-white/20 hover:bg-white/30">FECHAR</button>
+    </div>
 </div>
 
 <div class="ui-layer">
-    <div id="scoreboard" class="hidden absolute top-2 left-1/2 -translate-x-1/2 bg-black/60 px-4 py-1 rounded-full border border-white/20 flex gap-4 text-xl font-black text-white italic">
-        <div id="timer" class="text-yellow-400">05:00</div>
-        <span class="text-blue-500" id="scoreA">0</span><span class="text-gray-400">-</span><span class="text-red-500" id="scoreV">0</span>
+    <div id="scoreboard" class="hidden absolute top-5 left-1/2 -translate-x-1/2 bg-black/80 px-6 py-1 rounded-full border-2 border-white flex gap-6 text-2xl font-black text-white italic">
+        <div id="timer" class="text-yellow-400 border-r border-white/20 pr-4">05:00</div>
+        <span class="text-blue-500" id="scoreA">0</span><span class="text-red-500" id="scoreV">0</span>
     </div>
 
     <div id="hud-controls">
         <div id="top-left-controls">
             <div class="btn-hud-corner" onclick="toggleChat()">💬 CHAT</div>
-            <div class="btn-hud-corner" onclick="toggleIngameManager()">⚙️ MENU</div>
+            <div class="btn-hud-corner" onclick="toggleFullScreen()">⛶ TELA</div>
+            <div class="btn-hud-corner" onclick="toggleIngameManager()">👥 SALAS</div>
         </div>
         
+        <div id="ingame-top-right">
+            <button class="btn-top bg-red-500/50 hover:bg-red-500/80" onclick="quitToMain()">🔙 SAIR</button>
+        </div>
+
         <div id="chat-container">
             <div id="chat-msgs"></div>
             <div id="chat-input-row">
-                <input type="text" id="chat-input" placeholder="...">
-                <button onclick="sendChatMessage()" class="bg-green-600 text-white px-2 rounded text-xs font-bold">OK</button>
+                <input type="text" id="chat-input" placeholder="Mensagem...">
+                <button id="chat-send" onclick="sendChatMessage()">ENVIAR</button>
             </div>
         </div>
 
@@ -117,58 +216,83 @@
         <div id="passBtn" class="btn-game" style="bottom: 40px; right: 30px;">PASSE</div>
     </div>
 
-    <div id="lobby" class="absolute inset-0 bg-slate-900 text-white pointer-events-auto">
+    <div id="lobby" class="absolute inset-0 bg-black/95 text-white pointer-events-auto">
         <div id="screen-main" class="menu-screen">
-            <h1 class="text-5xl font-black italic mb-2 text-center">SOCCERZIN <span class="text-green-500">V4</span></h1>
-            <p class="text-[10px] text-gray-400 mb-6 font-mono">NO LAG / NO SHADOWS</p>
-            <input type="text" id="playerNick" class="bg-white/10 border border-white/20 text-white px-4 py-3 rounded mb-4 w-64 text-center font-bold" placeholder="SEU NICK" maxlength="10">
-            <button onclick="goToRoomMenu()" class="bg-green-600 text-black px-8 py-4 rounded font-black text-xl hover:scale-105 transition w-64">JOGAR</button>
-            <div class="flex gap-2 mt-4">
-                <button onclick="toggleHudEdit()" class="text-xs text-yellow-500 border border-yellow-500/30 px-3 py-1 rounded">EDITAR HUD</button>
-                <button onclick="toggleFullScreen()" class="text-xs text-white border border-white/30 px-3 py-1 rounded">TELA CHEIA</button>
+            <h1 class="text-7xl font-black italic mb-2">SOCCERZIN <span class="text-green-500">4V4</span></h1>
+            <p class="text-xs text-green-400 font-bold mb-4 tracking-widest uppercase">⚡ Física Fixa - Zero Delay</p>
+            <input type="text" id="playerNick" class="bg-white/5 border border-white/10 text-white px-4 py-4 rounded-2xl mb-6 w-72 text-center font-bold text-xl" placeholder="SEU NICKNAME" maxlength="12">
+            
+            <button onclick="goToRoomMenu()" class="bg-green-600 text-black px-10 py-5 rounded-2xl font-black text-2xl shadow-lg hover:scale-105 transition mb-6 w-72">JOGAR SALAS</button>
+            
+            <div class="flex gap-4 items-center flex-wrap justify-center w-full max-w-2xl px-4">
+                <a href="https://discord.gg/MHewBNDX5S" target="_blank" class="text-[#5865F2] border border-[#5865F2]/50 px-6 py-2 rounded-full text-[10px] font-bold uppercase hover:bg-[#5865F2]/10 transition no-underline">💬 DISCORD</a>
+                <button onclick="toggleCredits()" class="text-gray-300 border border-gray-300/30 px-6 py-2 rounded-full text-[10px] font-bold uppercase hover:bg-gray-300/10 transition">📜 CRÉDITOS</button>
+                <button onclick="toggleHudEdit()" class="text-yellow-500 border border-yellow-500/30 px-6 py-2 rounded-full text-[10px] font-bold uppercase hover:bg-yellow-500/10 transition">⚙️ HUD</button>
+                <button onclick="toggleGraphics()" id="btn-graphics" class="text-purple-400 border border-purple-500/30 px-6 py-2 rounded-full text-[10px] font-bold uppercase hover:bg-purple-500/10 transition">🎮 GRÁFICOS: ALTO</button>
+                <button onclick="toggleMusic()" id="btn-music" class="text-pink-400 border border-pink-500/30 px-6 py-2 rounded-full text-[10px] font-bold uppercase hover:bg-pink-500/10 transition">🎵 MÚSICA: OFF</button>
             </div>
         </div>
 
         <div id="screen-room-select" class="menu-screen hidden">
-            <h2 class="text-3xl font-black italic mb-6">SALAS</h2>
-            <div class="flex gap-4">
-                <button onclick="createRoom()" class="bg-blue-600 w-32 h-32 rounded font-bold text-lg shadow-lg">CRIAR</button>
-                <div class="bg-white/5 w-40 h-32 rounded border border-white/10 flex flex-col items-center justify-center p-2">
-                    <input type="text" id="roomCodeInput" class="w-full bg-black/50 border border-white/20 rounded p-1 text-center mb-2 uppercase text-sm" placeholder="CÓDIGO" maxlength="6">
-                    <button onclick="joinRoom()" class="bg-green-600 w-full py-1 rounded font-bold text-sm">ENTRAR</button>
+            <h2 class="text-4xl font-black italic mb-8">SALAS</h2>
+            <div class="flex gap-6">
+                <button onclick="createRoom()" class="bg-blue-600 w-48 h-48 rounded-2xl font-black text-2xl shadow-lg hover:scale-105 transition flex flex-col items-center justify-center gap-2">
+                    <span>CRIAR SALA</span>
+                    <span class="text-xs font-normal opacity-70">GERAR CÓDIGO</span>
+                </button>
+                <div class="bg-white/5 w-48 h-48 rounded-2xl border border-white/10 flex flex-col items-center justify-center p-4">
+                    <span class="font-bold mb-2">ENTRAR</span>
+                    <input type="text" id="roomCodeInput" class="w-full bg-black/50 border border-white/20 rounded p-2 text-center mb-2 uppercase" placeholder="CÓDIGO" maxlength="6">
+                    <button onclick="joinRoom()" class="bg-green-600 w-full py-2 rounded font-bold text-black hover:bg-green-500">CONECTAR</button>
+                    <p id="error-msg"></p>
                 </div>
             </div>
-            <button onclick="backToMain()" class="mt-8 text-white/50 text-sm">VOLTAR</button>
-            <p id="error-msg" class="text-red-500 text-xs mt-2 font-bold"></p>
+            <button onclick="backToMain()" class="mt-8 text-white/50 hover:text-white">VOLTAR</button>
         </div>
 
         <div id="screen-room-lobby" class="menu-screen hidden relative">
-            <div class="lobby-wrapper w-full max-w-2xl">
-                <div class="flex justify-between items-center mb-4">
-                    <div class="font-bold text-gray-400">SALA: <span id="displayRoomCode" class="text-white text-xl select-all"></span></div>
-                    <button onclick="quitToMain()" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold">SAIR</button>
+            <div class="lobby-wrapper">
+                <div class="absolute top-4 left-4 font-bold text-gray-400 z-50">SALA: <span id="displayRoomCode" class="text-white text-xl select-all"></span></div>
+                <div class="absolute top-4 right-4 flex gap-2 z-50">
+                    <button onclick="toggleFullScreen()" class="bg-white/10 text-white border border-white/20 px-4 py-2 rounded font-bold text-xs hover:bg-white/20">⛶ TELA</button>
+                    <button onclick="quitToMain()" class="bg-red-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-red-500">SAIR DA SALA</button>
                 </div>
 
                 <div class="lobby-content">
-                    <div class="flex w-full gap-2 mb-2 flex-1 items-stretch justify-center h-48">
+                    <h2 class="text-3xl font-black italic mb-2 text-green-500 text-center mt-10">GERENCIAMENTO</h2>
+                    <p class="text-xs text-gray-500 mb-2 text-center">TOQUE NO NOME PARA OPÇÕES (SÓ O CAPITÃO)</p>
+
+                    <div class="flex w-full px-10 gap-4 mb-2 flex-1 items-stretch justify-center">
                         <div class="team-column border-blue-500/30">
-                            <h3 class="text-blue-500 font-bold text-center text-[10px]">AZUL</h3>
-                            <div id="list-blue"></div>
+                            <h3 class="text-blue-500 font-black text-center mb-2 text-xs">AZUL (0/4)</h3>
+                            <div id="list-blue" class="flex flex-col gap-2"></div>
                         </div>
+
                         <div class="team-column border-white/30 bg-black/40">
-                            <h3 class="text-white font-bold text-center text-[10px]">ESPEC</h3>
-                            <div id="list-spec"></div>
+                            <h3 class="text-white font-black text-center mb-2 text-xs">ESPECTADORES</h3>
+                            <div id="list-spec" class="flex flex-col gap-2"></div>
                         </div>
+
                         <div class="team-column border-red-500/30">
-                            <h3 class="text-red-500 font-bold text-center text-[10px]">VERMELHO</h3>
-                            <div id="list-red"></div>
+                            <h3 class="text-red-500 font-black text-center mb-2 text-xs">VERMELHO (0/4)</h3>
+                            <div id="list-red" class="flex flex-col gap-2"></div>
                         </div>
                     </div>
                     
-                    <div id="admin-panel-btns" class="hidden text-center mt-4">
-                        <button onclick="startGame()" class="bg-green-500 text-black px-8 py-3 rounded font-black text-lg w-full">INICIAR PARTIDA</button>
+                    <div id="admin-panel-btns" class="hidden text-center mb-2">
+                        <button onclick="startGame()" class="bg-green-500 text-black px-12 py-3 rounded-xl font-black text-xl shadow-lg hover:bg-green-400 transition">INICIAR PARTIDA</button>
                     </div>
-                    <p id="msg-wait" class="text-white/30 mt-4 text-center text-xs animate-pulse">AGUARDANDO O HOST...</p>
+                    <p id="msg-wait" class="text-white/50 mt-2 animate-pulse text-center">AGUARDANDO O CAPITÃO INICIAR...</p>
+                </div>
+
+                <div class="lobby-chat-box">
+                    <div id="lobby-chat-msgs" class="lobby-msgs">
+                        <div class="text-white/30 italic text-xs">Chat da Sala</div>
+                    </div>
+                    <div class="lobby-input-area">
+                        <input type="text" id="lobby-chat-input" class="lobby-input" placeholder="Digite aqui..." maxlength="50">
+                        <button onclick="sendLobbyChat()" class="bg-green-600 text-white px-6 rounded font-bold">OK</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -176,13 +300,25 @@
 </div>
 
 <script>
-// --- CONFIGURAÇÃO DE REDE LEVE ---
+// --- CONFIGURAÇÃO DE REDE OTIMIZADA PARA VELOCIDADE ---
 const peerConfig = {
-    host: '0.peerjs.com', port: 443, secure: true,
-    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }], iceCandidatePoolSize: 2 }
+    host: '0.peerjs.com', 
+    port: 443,
+    secure: true,
+    pingInterval: 5000,
+    config: {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+    }
 };
-// Conexão UDP-like (sem confiabilidade garantida = mais rápido)
-const connectionOptions = { reliable: false, ordered: false };
+
+const connectionOptions = {
+    reliable: false, 
+    ordered: false,
+    serialization: 'json' 
+};
 
 let peer = null;
 let conn = null; 
@@ -190,70 +326,89 @@ let connections = [];
 let isHost = false;
 let myPeerId = null;
 
-let myData = { nick: '', id: '', isAdmin: false, team: 'spec', isCaptain: false, r: 24 }; // RAIO PLAYER = 24
+let myData = { nick: '', id: '', isAdmin: false, team: 'spec', isCaptain: false, r: 24 };
 
+// Configuração de Física e Rede
 let lastNetworkUpdate = 0;
-// ATENÇÃO: Reduzi para 20 TPS (Ticks Per Second) para aliviar a banda
-// O cliente interpola o resto. Menos pacotes = Menos lag de internet ruim
-const networkUpdateRate = 1000 / 20; 
+const networkUpdateRate = 1000 / 30; // Envia pacotes 30 vezes por segundo
+const PHYSICS_HZ = 60; // Física roda a 60FPS FIXO (não depende do monitor)
+let physicsInterval = null;
 
 function generateRoomCode() {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let result = "";
+    for(let i=0; i<6; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+    return result;
 }
 
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true }); // Otimização Canvas
+const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true }); 
 const FIELD_W = 2200, FIELD_H = 1200;
 const GOAL_H_HALF = 160; 
 const GOAL_DEPTH = 80;
 
 const keys = { w: false, a: false, s: false, d: false };
+let graphicsLow = false;
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+if(isMobile) graphicsLow = true;
 
-// --- VARIAVEIS GLOBAIS ---
+function toggleGraphics() {
+    graphicsLow = !graphicsLow;
+    const btn = document.getElementById('btn-graphics');
+    const btnIngame = document.getElementById('btn-graphics-ingame');
+    const label = graphicsLow ? "GRÁFICOS: BAIXO" : "GRÁFICOS: ALTO";
+    btn.innerText = "🎮 " + label;
+    btnIngame.innerText = label;
+    resize();
+}
+
 let isEditing = false, dragElement = null, selectedElement = null;
-let gameZoom = 0.65; // Zoom um pouco mais afastado
+let gameZoom = 0.75; 
 let particles = [];
 let timeLeft = 300; 
 let activePlayerIdMenu = null; 
 let isPaused = false; 
 
+let gameState = 'MENU'; 
 let roomPlayers = []; 
 let bannedPlayers = []; 
 
-// AUDIO CONTEXT (Simples)
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playSound(type) {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    
-    if(type === 'kick') {
-        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-    } else if (type === 'goal') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-        osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 0.5);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
-        osc.start(); osc.stop(audioCtx.currentTime + 1.0);
+const bgm = document.getElementById('menu-music');
+let musicOn = false;
+
+function toggleMusic() {
+    const btn = document.getElementById('btn-music');
+    if(musicOn) {
+        bgm.pause();
+        musicOn = false;
+        btn.innerText = "🎵 MÚSICA: OFF";
+        btn.classList.add('opacity-50');
+    } else {
+        bgm.volume = 0.4; 
+        bgm.play().then(() => {
+            musicOn = true;
+            btn.innerText = "🎵 MÚSICA: ON";
+            btn.classList.remove('opacity-50');
+        }).catch(e => {
+            alert("Toque na tela para permitir o áudio!");
+        });
     }
 }
 
-// --- FUNÇÕES DE MENU E NAVEGAÇÃO ---
+function toggleCredits() {
+    const el = document.getElementById('credits-modal');
+    el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
+}
 
 function goToRoomMenu() {
     const nick = document.getElementById('playerNick').value.trim();
-    if(!nick) { alert("NICK OBRIGATÓRIO"); return; }
+    if(!nick) { alert("DIGITE UM NICKNAME!"); return; }
     myData.nick = nick;
     if(!myData.id) myData.id = Math.random().toString(36).substr(2, 9);
     
     document.getElementById('screen-main').classList.add('hidden');
     document.getElementById('screen-room-select').classList.remove('hidden');
+    document.getElementById('error-msg').style.display = 'none';
 }
 
 function backToMain() {
@@ -264,20 +419,24 @@ function backToMain() {
 
 function createRoom() {
     const code = generateRoomCode();
-    const peerId = "SOC-V4-" + code; 
-    document.getElementById('network-status').innerText = "Criando...";
+    const peerId = "SOC-FIX-V4-" + code; 
+    document.getElementById('network-status').innerText = "Criando sala " + code + "...";
     
     peer = new Peer(peerId, peerConfig);
     
     peer.on('open', (id) => {
-        isHost = true; myPeerId = id;
+        isHost = true;
+        myPeerId = id;
         enterRoomLobby(code, true);
         document.getElementById('network-status').innerText = "HOST: " + code;
+        startPhysicsLoop(); // Inicia o loop de física do Host
     });
     
     peer.on('connection', (c) => {
         connections.push(c);
-        c.on('data', (data) => handleData(data, c));
+        c.on('data', (data) => {
+            handleData(data, c);
+        });
         c.on('close', () => {
             connections = connections.filter(conn => conn !== c);
             if(c.peerPlayerId) {
@@ -288,15 +447,17 @@ function createRoom() {
         c.send({ type: 'LOBBY_UPDATE', players: roomPlayers, isPaused: isPaused, score: score, timeLeft: timeLeft });
     });
     
-    peer.on('error', (err) => { alert("Erro ao criar sala. Tente novamente."); backToMain(); });
+    peer.on('error', (err) => {
+        alert("Erro ao criar sala. Tente novamente.");
+        backToMain();
+    });
 }
 
 function joinRoom() {
     const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
-    if(code.length < 4) return;
+    if(code.length < 3) return;
     
-    const hostId = "SOC-V4-" + code;
-    document.getElementById('network-status').innerText = "Conectando...";
+    const hostId = "SOC-FIX-V4-" + code;
     peer = new Peer(peerConfig); 
     
     peer.on('open', (id) => {
@@ -310,19 +471,29 @@ function joinRoom() {
             document.getElementById('network-status').innerText = "Conectado: " + code;
         });
         
-        conn.on('data', (data) => handleClientData(data));
-        conn.on('close', () => { alert("Sala fechada pelo Host."); quitToMain(); });
-        conn.on('error', () => { alert("Erro de conexão."); });
+        conn.on('data', (data) => {
+            handleClientData(data);
+        });
+        
+        conn.on('close', () => {
+            alert("Sala encerrada pelo Host.");
+            quitToMain();
+        });
+    });
+    
+    peer.on('error', (err) => {
+        document.getElementById('error-msg').innerText = "SALA NÃO ENCONTRADA!";
+        document.getElementById('error-msg').style.display = 'block';
     });
 }
 
 function handleData(data, connection) {
     if(data.type === 'JOIN') {
         const newP = data.player;
+        if(bannedPlayers.includes(newP.id)) return;
         if(!roomPlayers.find(p => p.id === newP.id)) {
-            newP.x = -5000; newP.y = -5000;
-            newP.vx = 0; newP.vy = 0;
-            newP.r = 24; 
+            newP.x = -9999; newP.y = -9999;
+            newP.r = 24;
             newP.input = {vx:0, vy:0, kick:0};
             roomPlayers.push(newP);
             connection.peerPlayerId = newP.id; 
@@ -333,8 +504,6 @@ function handleData(data, connection) {
         const p = roomPlayers.find(pl => pl.id === data.id);
         if(p) {
             p.input = data.input; 
-            // O host aceita o input do cliente.
-            // Para evitar trapaça, poderíamos validar, mas para evitar lag, aceitamos.
         }
     }
     if(data.type === 'CHAT') {
@@ -343,17 +512,33 @@ function handleData(data, connection) {
     }
 }
 
+function updateGameInfoDOM(t, s) {
+    let mins = Math.floor(t / 60);
+    let secs = t % 60;
+    document.getElementById('timer').innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+    document.getElementById('scoreA').innerText = s.azul;
+    document.getElementById('scoreV').innerText = s.verm;
+}
+
 function handleClientData(data) {
     if(data.type === 'LOBBY_UPDATE') {
         const isGameRunning = document.getElementById('lobby').style.display === 'none';
         
-        if(!isGameRunning) roomPlayers = data.players;
-        else {
-            // Atualiza apenas metadados (quem é time, quem é capitão)
+        if(!isGameRunning) {
+            roomPlayers = data.players;
+        } else {
+            // Sincroniza apenas metadados
             data.players.forEach(srvP => {
                 let localP = roomPlayers.find(p => p.id === srvP.id);
-                if(localP) { localP.team = srvP.team; localP.isCaptain = srvP.isCaptain; localP.nick = srvP.nick; }
-                else roomPlayers.push(srvP);
+                if(localP) {
+                    localP.team = srvP.team;
+                    localP.isCaptain = srvP.isCaptain;
+                    localP.nick = srvP.nick;
+                } else {
+                    // Novo player entrou no meio
+                    srvP.tx = srvP.x; srvP.ty = srvP.y;
+                    roomPlayers.push(srvP);
+                }
             });
             roomPlayers = roomPlayers.filter(p => data.players.find(srvP => srvP.id === p.id));
         }
@@ -367,41 +552,45 @@ function handleClientData(data) {
             myData.team = me.team;
             myData.isCaptain = me.isCaptain;
             player.time = (myData.team === 'spec') ? null : myData.team;
-            if(data.gameRunning) updateControlsVisibility();
+            
+            if(data.gameRunning) {
+                updateControlsVisibility();
+            }
         }
         updateLobbyUI();
         
-        if(data.gameRunning && !isGameRunning) startGameClient();
-        else if(!data.gameRunning && isGameRunning) cancelMatchClient();
+        const isGameRunningLocally = document.getElementById('lobby').style.display === 'none';
+        if(data.gameRunning && !isGameRunningLocally) startGameClient();
+        else if(!data.gameRunning && isGameRunningLocally) cancelMatchClient();
     }
     
     // --- NETCODE OTIMIZADO (V4) ---
     if(data.type === 'GT') { 
-        // Bola: Interpolação Linear
+        // Bola: Interpolação suave
         ball.tx = data.b.x;
         ball.ty = data.b.y;
         
-        // Se a bola teleportou muito longe (gol ou reset), move instantâneo
-        if(Math.abs(ball.x - ball.tx) > 800) { ball.x = ball.tx; ball.y = ball.ty; }
+        // Se a bola estiver muito longe (lag spike), teleporta
+        if(Math.hypot(ball.x - ball.tx, ball.y - ball.ty) > 400) { 
+            ball.x = ball.tx; ball.y = ball.ty; 
+        }
 
         data.p.forEach(serverP => {
             let localP = roomPlayers.find(p => p.id === serverP.i); 
             if(localP) {
-                // Se NÃO SOU EU, atualizo o alvo para interpolação
-                if(localP.id !== myData.id) {
+                if(localP.id === myData.id) {
+                    // Predição do Cliente: Só corrige se errar muito (> 80px)
+                    let dist = Math.hypot(localP.x - serverP.x, localP.y - serverP.y);
+                    if(dist > 80) { 
+                        localP.x = localP.x * 0.8 + serverP.x * 0.2; 
+                        localP.y = localP.y * 0.8 + serverP.y * 0.2;
+                    }
+                } else {
+                    // Outros players: Interpolação
                     localP.tx = serverP.x;
                     localP.ty = serverP.y;
-                    // Correção instantânea se desync for enorme
-                    if(Math.abs(localP.x - localP.tx) > 600) { localP.x = localP.tx; localP.y = localP.ty; }
-                } 
-                // Se SOU EU, ignoro o servidor para movimento suave (Client-Side Prediction),
-                // a menos que o servidor diga que estou muito longe (anti-cheat leve).
-                else {
-                    let dx = localP.x - serverP.x;
-                    let dy = localP.y - serverP.y;
-                    if(Math.sqrt(dx*dx + dy*dy) > 150) { // Tolerância alta pra não dar "snap back" chato
-                        localP.x = localP.x * 0.9 + serverP.x * 0.1;
-                        localP.y = localP.y * 0.9 + serverP.y * 0.1;
+                    if(Math.hypot(localP.x - localP.tx, localP.y - localP.ty) > 400) { 
+                        localP.x = localP.tx; localP.y = localP.ty; 
                     }
                 }
             }
@@ -409,15 +598,18 @@ function handleClientData(data) {
 
         score = data.s; 
         timeLeft = data.t; 
-        updateGameInfoDOM();
+        updateGameInfoDOM(timeLeft, score);
     }
 
     if(data.type === 'GOAL_EVENT') { triggerGoal(data.scorer); }
     if(data.type === 'CHAT') { appendMessageToAll(data.nick, data.msg); }
+    if(data.type === 'KICKED') { alert(data.msg); quitToMain(); }
 }
 
 function broadcast(msg) {
-    connections.forEach(c => { if(c.open) c.send(msg); });
+    connections.forEach(c => {
+        if(c.open) c.send(msg);
+    });
 }
 
 function broadcastRoomState() {
@@ -437,26 +629,35 @@ function enterRoomLobby(code, isAdmin) {
     document.getElementById('screen-room-select').classList.add('hidden');
     document.getElementById('screen-room-lobby').classList.remove('hidden');
     document.getElementById('displayRoomCode').innerText = code;
-    myData.isAdmin = isAdmin; myData.isCaptain = isAdmin; myData.team = 'spec'; 
+    
+    myData.isAdmin = isAdmin;
+    myData.isCaptain = isAdmin; 
+    myData.team = 'spec'; 
+    bannedPlayers = []; 
+    
     if(isHost) {
-        roomPlayers = [{ ...myData, x: -5000, y: -5000, input: {vx:0, vy:0}, lastAction: Date.now() }];
+        roomPlayers = [{ ...myData, x: -9999, y: -9999, input: {vx:0, vy:0}, r: 24 }];
     }
     updateLobbyUI();
 }
 
 function updateLobbyUI() {
     const isGameRunning = document.getElementById('lobby').style.display === 'none';
-    const listBlue = document.getElementById('list-blue');
-    const listRed = document.getElementById('list-red');
-    const listSpec = document.getElementById('list-spec');
+    const prefix = isGameRunning ? 'ingame-list-' : 'list-';
+    const listBlue = document.getElementById(prefix + 'blue');
+    const listRed = document.getElementById(prefix + 'red');
+    const listSpec = document.getElementById(prefix + 'spec');
     
     if(listBlue) listBlue.innerHTML = ''; 
     if(listRed) listRed.innerHTML = ''; 
     if(listSpec) listSpec.innerHTML = '';
 
-    const btnPanel = document.getElementById('admin-panel-btns');
-    const msgWait = document.getElementById('msg-wait');
+    const me = roomPlayers.find(p => p.id === myData.id);
+    const iAmCaptain = me && me.isCaptain;
+
     if(!isGameRunning) {
+        const btnPanel = document.getElementById('admin-panel-btns');
+        const msgWait = document.getElementById('msg-wait');
         if(btnPanel) btnPanel.style.display = isHost ? 'block' : 'none';
         if(msgWait) msgWait.style.display = isHost ? 'none' : 'block';
     }
@@ -464,23 +665,34 @@ function updateLobbyUI() {
     roomPlayers.forEach(p => {
         const card = document.createElement('div');
         card.className = 'player-card';
+        
+        const showOptions = (activePlayerIdMenu === p.id) && iAmCaptain && isHost;
+
         let optionsHTML = '';
-        if(isHost && !isGameRunning && activePlayerIdMenu === p.id) {
-            optionsHTML = `
-                <div class="admin-options">
-                    <div class="admin-row">
-                        <div onclick="movePlayer('${p.id}', 'azul')" class="admin-btn bg-blue-600">AZUL</div>
-                        <div onclick="movePlayer('${p.id}', 'vermelho')" class="admin-btn bg-red-600">VERM</div>
-                        <div onclick="movePlayer('${p.id}', 'spec')" class="admin-btn bg-gray-500">SPEC</div>
-                    </div>
-                </div>`;
+        if(showOptions) {
+            const teamRow = `
+                <div class="admin-row">
+                    <div onclick="movePlayer('${p.id}', 'azul')" class="admin-btn bg-blue-600 hover:bg-blue-500">TIME AZUL</div>
+                    <div onclick="movePlayer('${p.id}', 'vermelho')" class="admin-btn bg-red-600 hover:bg-red-500">TIME VERM</div>
+                </div>
+            `;
+            const btnSpec = `<div onclick="movePlayer('${p.id}', 'spec')" class="admin-btn bg-gray-500 hover:bg-gray-400">👀 SPEC</div>`;
+            const kickBan = p.id !== myData.id ? `
+                <div onclick="kickPlayer('${p.id}')" class="admin-btn bg-orange-600 text-black hover:bg-orange-500">KITAR</div>
+            ` : '';
+            optionsHTML = `<div class="admin-options">${teamRow} <div class="admin-row">${btnSpec}${kickBan}</div></div>`;
         }
+
         card.innerHTML = `
-            <div onclick="togglePlayerMenu('${p.id}')" class="cursor-pointer flex justify-between">
-                <span class="${p.id === myData.id ? 'text-green-400' : 'text-white'} truncate font-bold">${p.nick}</span>
+            <div class="player-header" onclick="togglePlayerMenu('${p.id}')">
+                <span class="${p.id === myData.id ? 'text-green-400' : 'text-white'} font-bold truncate">
+                    ${p.isCaptain ? '👑' : ''} ${p.nick}
+                </span>
+                <span class="text-xs text-gray-400">${iAmCaptain && isHost ? '▼' : ''}</span>
             </div>
             ${optionsHTML}
         `;
+
         if(p.team === 'azul') listBlue?.appendChild(card);
         else if(p.team === 'vermelho') listRed?.appendChild(card);
         else listSpec?.appendChild(card);
@@ -489,7 +701,8 @@ function updateLobbyUI() {
 
 window.togglePlayerMenu = function(id) {
     if(!isHost) return; 
-    activePlayerIdMenu = (activePlayerIdMenu === id) ? null : id;
+    if(activePlayerIdMenu === id) activePlayerIdMenu = null;
+    else activePlayerIdMenu = id;
     updateLobbyUI();
 }
 
@@ -498,12 +711,26 @@ window.movePlayer = function(id, targetTeam) {
     const p = roomPlayers.find(pl => pl.id === id);
     if(p) {
         p.team = targetTeam;
+        p.x = -9999; p.y = -9999; 
+        p.vx = 0; p.vy = 0;
         activePlayerIdMenu = null; 
         broadcastRoomState();
     }
 }
 
-function startGame() {
+window.kickPlayer = function(id) {
+    if(!isHost) return;
+    const connToKick = connections.find(c => c.peerPlayerId === id);
+    if(connToKick) {
+        connToKick.send({ type: 'KICKED', msg: "Você foi expulso." });
+        setTimeout(() => connToKick.close(), 100);
+    }
+    roomPlayers = roomPlayers.filter(p => p.id !== id);
+    activePlayerIdMenu = null;
+    broadcastRoomState();
+}
+
+window.startGame = function() {
     if(!isHost) return;
     isPaused = false;
     resetPositions();
@@ -511,55 +738,65 @@ function startGame() {
     broadcastRoomState();
 }
 
+function updateControlsVisibility() {
+    const isSpec = !player.time || player.time === 'spec';
+    const joy = document.getElementById('joy-base');
+    const btnK = document.getElementById('kickBtn');
+    const btnP = document.getElementById('passBtn');
+    if(joy) joy.style.display = isSpec ? 'none' : 'block';
+    if(btnK) btnK.style.display = isSpec ? 'none' : 'flex';
+    if(btnP) btnP.style.display = isSpec ? 'none' : 'flex';
+}
+
 function startGameClient() {
+    if(musicOn) bgm.pause();
     document.getElementById('lobby').style.display = 'none';
     document.getElementById('scoreboard').style.display = 'flex';
+    document.getElementById('ingame-top-right').style.display = 'flex';
     document.getElementById('hud-controls').style.display = 'block';
-    updateControlsVisibility();
-    resize();
+    updateControlsVisibility(); 
+    if(isHost) updateGameInfoDOM(timeLeft, score);
 }
 
 function cancelMatchClient() {
+    isPaused = false;
+    if(musicOn) bgm.play();
     document.getElementById('scoreboard').style.display = 'none';
     document.getElementById('hud-controls').style.display = 'none';
+    document.getElementById('ingame-top-right').style.display = 'none';
     document.getElementById('ingame-modal').style.display = 'none';
     document.getElementById('lobby').style.display = 'block';
-}
-
-function updateControlsVisibility() {
-    const isSpec = !player.time || player.time === 'spec';
-    document.getElementById('joy-base').style.display = isSpec ? 'none' : 'block';
-    document.getElementById('kickBtn').style.display = isSpec ? 'none' : 'flex';
-    document.getElementById('passBtn').style.display = isSpec ? 'none' : 'flex';
-}
-
-function updateGameInfoDOM() {
-    let mins = Math.floor(timeLeft / 60);
-    let secs = timeLeft % 60;
-    document.getElementById('timer').innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
-    document.getElementById('scoreA').innerText = score.azul;
-    document.getElementById('scoreV').innerText = score.verm;
+    document.getElementById('screen-room-lobby').classList.remove('hidden');
+    player.time = null; 
+    updateLobbyUI();
 }
 
 function toggleIngameManager() {
     const modal = document.getElementById('ingame-modal');
     modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+    updateLobbyUI();
     const controls = document.getElementById('admin-game-controls');
     if(controls) controls.style.display = isHost ? 'flex' : 'none';
-}
-
-function resetMatch() {
-    if(!isHost) return;
-    score = {azul:0, verm:0}; timeLeft = 300;
-    resetPositions();
-    broadcastRoomState();
-    toggleIngameManager();
 }
 
 function togglePause() {
     if(!isHost) return;
     isPaused = !isPaused;
     broadcastRoomState();
+    const btn = document.getElementById('btn-pause');
+    if(isPaused) { btn.innerHTML = "▶ RESUMIR"; btn.classList.replace('bg-blue-600', 'bg-green-600'); }
+    else { btn.innerHTML = "⏸ PAUSAR"; btn.classList.replace('bg-green-600', 'bg-blue-600'); }
+    toggleIngameManager(); 
+}
+
+function resetMatch() {
+    if(!isHost) return;
+    score.azul = 0; score.verm = 0;
+    timeLeft = 300;
+    resetPositions();
+    isPaused = false;
+    broadcastRoomState();
+    togglePause();
 }
 
 function cancelMatch() {
@@ -571,7 +808,12 @@ function cancelMatch() {
 
 function quitToMain() {
     if(peer) { peer.destroy(); peer = null; }
-    conn = null; connections = []; isHost = false;
+    conn = null; connections = [];
+    isHost = false;
+    if(physicsInterval) clearInterval(physicsInterval);
+    player.time = null;
+    isPaused = false;
+    if(musicOn) bgm.play();
     document.getElementById('lobby').style.display = 'block';
     document.getElementById('screen-main').classList.remove('hidden');
     document.getElementById('screen-room-select').classList.add('hidden');
@@ -579,6 +821,9 @@ function quitToMain() {
     document.getElementById('scoreboard').style.display = 'none';
     document.getElementById('hud-controls').style.display = 'none';
     document.getElementById('ingame-modal').style.display = 'none';
+    document.getElementById('ingame-top-right').style.display = 'none';
+    document.getElementById('network-status').innerText = "Desconectado";
+    roomPlayers = []; myData.team = 'spec';
 }
 
 function toggleChat() {
@@ -590,6 +835,8 @@ function appendMessageToAll(nick, msg) {
     const line = `<div><strong>${nick}:</strong> ${msg}</div>`;
     const ingameDiv = document.getElementById('chat-msgs');
     if(ingameDiv) { ingameDiv.insertAdjacentHTML('beforeend', line); ingameDiv.scrollTop = ingameDiv.scrollHeight; }
+    const lobbyDiv = document.getElementById('lobby-chat-msgs');
+    if(lobbyDiv) { lobbyDiv.insertAdjacentHTML('beforeend', line); lobbyDiv.scrollTop = lobbyDiv.scrollHeight; }
 }
 
 function sendChatMessage() {
@@ -605,16 +852,56 @@ function sendChatMessage() {
         input.value = "";
     }
 }
-
-function startTimer() {
-    setInterval(() => {
-        if(isHost && !isPaused && document.getElementById('lobby').style.display === 'none' && timeLeft > 0) {
-            timeLeft--;
-            if(timeLeft === 0) { timeLeft = 300; resetPositions(); }
+function sendLobbyChat() {
+    const input = document.getElementById('lobby-chat-input');
+    const msg = input.value.trim();
+    if(msg !== "") {
+        if(isHost) {
+             appendMessageToAll(myData.nick, msg);
+             broadcast({ type: 'CHAT', nick: myData.nick, msg: msg });
+        } else if(conn) {
+             conn.send({ type: 'CHAT', nick: myData.nick, msg: msg });
         }
-    }, 1000);
+        input.value = "";
+    }
 }
-startTimer();
+
+document.getElementById('lobby-chat-input').addEventListener('keydown', function(e) { if(e.key === 'Enter') sendLobbyChat(); });
+document.getElementById('chat-input').addEventListener('keydown', function(e) { if(e.key === 'Enter') sendChatMessage(); });
+
+setInterval(() => {
+    if(!isHost) return;
+    if(!isPaused && document.getElementById('lobby').style.display === 'none' && timeLeft > 0) {
+        timeLeft--;
+        if(timeLeft === 0) { timeLeft = 300; resetPositions(); }
+    }
+}, 1000);
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(type) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    if(type === 'kick') {
+        osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    } else if (type === 'post') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime); 
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+    } else if (type === 'goal') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
+    }
+    osc.start(); osc.stop(audioCtx.currentTime + (type==='goal'?1.0:0.5));
+}
 
 function toggleFullScreen() {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(e=>{});
@@ -622,101 +909,121 @@ function toggleFullScreen() {
 }
 
 function resize() { 
-    canvas.width = window.innerWidth; 
-    canvas.height = window.innerHeight; 
-    // DESATIVAR SUAVIZAÇÃO PARA GANHAR FPS
-    ctx.imageRendering = 'pixelated'; 
+    let ratio = window.devicePixelRatio || 1;
+    if (graphicsLow) ratio = 1; else if (ratio > 1.5) ratio = 1.5; 
+    canvas.width = window.innerWidth * ratio; 
+    canvas.height = window.innerHeight * ratio; 
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    if(graphicsLow) canvas.style.imageRendering = 'pixelated';
+    else canvas.style.imageRendering = 'auto';
 }
 window.addEventListener('resize', resize); resize();
 
-// --- LÓGICA DO JOGO ---
-
-let player = { x: -5000, y: -5000, vx: 0, vy: 0, r: 24, time: '', nick: '', input: {vx:0, vy:0, kick:0} };
+let player = { x: -9999, y: -9999, vx: 0, vy: 0, r: 24, time: '', nick: '', input: {vx:0, vy:0, kick:0} };
 let ball = { x: FIELD_W/2, y: FIELD_H/2, vx: 0, vy: 0, r: 15, visible: true, tx: FIELD_W/2, ty: FIELD_H/2 }; 
 let score = { azul: 0, verm: 0 }, joy = { active: false, angle: 0, force: 0, id: null };
+let isGoalProcess = false;
 let kickRequest = 0; 
-let lastTouchNick = ""; 
+let lastTouchNick = "ALGUÉM"; 
 
-// HUD Editor
 function toggleHudEdit() {
     isEditing = !isEditing;
-    document.getElementById('edit-panel').style.display = isEditing ? 'block' : 'none';
+    const hudControls = document.getElementById('hud-controls');
     if(isEditing) {
-        document.getElementById('hud-controls').style.display = 'block';
-        ['joy-base','kickBtn','passBtn'].forEach(id => document.getElementById(id).classList.add('editing'));
-        document.getElementById('joy-base').style.display = 'block';
-        document.getElementById('kickBtn').style.display = 'flex';
-        document.getElementById('passBtn').style.display = 'flex';
+        document.getElementById('lobby').style.display = 'none';
+        document.getElementById('edit-panel').style.display = 'block';
+        hudControls.style.display = 'block';
+        document.getElementById('chat-container').style.display = 'none';
+        document.getElementById('top-left-controls').style.display = 'none';
+        document.getElementById('joy-base').classList.add('editing');
+        document.getElementById('kickBtn').classList.add('editing');
+        document.getElementById('passBtn').classList.add('editing');
     } else {
-        ['joy-base','kickBtn','passBtn'].forEach(id => document.getElementById(id).classList.remove('editing'));
-        if(document.getElementById('lobby').style.display !== 'none') document.getElementById('hud-controls').style.display = 'none';
-        else updateControlsVisibility();
+        document.getElementById('edit-panel').style.display = 'none';
+        document.getElementById('top-left-controls').style.display = 'flex';
+        document.getElementById('joy-base').classList.remove('editing');
+        document.getElementById('kickBtn').classList.remove('editing');
+        document.getElementById('passBtn').classList.remove('editing');
+        const inLobby = !document.getElementById('screen-room-lobby').classList.contains('hidden');
+        if(inLobby) { document.getElementById('lobby').style.display = 'block'; hudControls.style.display = 'none'; }
+        else hudControls.style.display = 'block';
     }
 }
+
 function updateItemSize() {
-    if(selectedElement) {
-        const val = document.getElementById('size-slider').value + 'px';
-        selectedElement.style.width = val; selectedElement.style.height = val;
-    }
+    if(!selectedElement) return;
+    const val = document.getElementById('size-slider').value + 'px';
+    selectedElement.style.width = val; selectedElement.style.height = val;
 }
+function updateZoom() { gameZoom = parseFloat(document.getElementById('zoom-slider').value); }
+
 window.addEventListener('touchstart', (e) => {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t = e.changedTouches[0];
     if(isEditing) {
-        const t = e.changedTouches[0];
         ['joy-base', 'kickBtn', 'passBtn'].forEach(id => {
             const el = document.getElementById(id); const r = el.getBoundingClientRect();
             if(t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) {
                 dragElement = el; selectedElement = el;
+                ['joy-base', 'kickBtn', 'passBtn'].forEach(i => document.getElementById(i).classList.remove('selected-edit'));
+                el.classList.add('selected-edit');
                 document.getElementById('size-slider').value = parseInt(el.style.width) || 85;
             }
         });
     } else if(player.time) {
         const r = document.getElementById('joy-base').getBoundingClientRect();
-        for(let t of e.changedTouches) {
-            if(t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) { 
-                joy.id = t.identifier; joy.active = true; 
-            }
-        }
+        if(t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) { joy.id = t.identifier; joy.active = true; }
     }
 });
+
 window.addEventListener('touchmove', (e) => {
     if(isEditing && dragElement) {
         const t = e.touches[0];
         dragElement.style.left = (t.clientX - dragElement.offsetWidth/2) + 'px';
         dragElement.style.top = (t.clientY - dragElement.offsetHeight/2) + 'px';
-        dragElement.style.bottom = 'auto'; dragElement.style.right = 'auto';
     } else if(joy.active) {
         for(let touch of e.touches) if(touch.identifier === joy.id) {
             const r = document.getElementById('joy-base').getBoundingClientRect();
             const dx = touch.clientX - (r.left + r.width/2), dy = touch.clientY - (r.top + r.height/2);
-            const dist = Math.min(r.width/2, Math.sqrt(dx*dx + dy*dy));
+            const dist = Math.min(r.width/2, Math.hypot(dx, dy));
             joy.angle = Math.atan2(dy, dx); joy.force = dist / (r.width/2);
             document.getElementById('joy-stick').style.transform = `translate(${Math.cos(joy.angle)*dist}px, ${Math.sin(joy.angle)*dist}px)`;
         }
     }
 });
+
 window.addEventListener('touchend', (e) => {
     dragElement = null;
     for(let t of e.changedTouches) if(t.identifier === joy.id) { joy.active = false; joy.force = 0; document.getElementById('joy-stick').style.transform = `translate(0,0)`; }
 });
 
-document.getElementById('kickBtn').addEventListener('touchstart', (e) => { e.preventDefault(); kickRequest = 14; });
+document.getElementById('kickBtn').addEventListener('touchstart', (e) => { e.preventDefault(); kickRequest = 13; });
 document.getElementById('passBtn').addEventListener('touchstart', (e) => { e.preventDefault(); kickRequest = 8; });
 
-// CONTROLES PC
-window.addEventListener('keydown', (e) => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; if(e.key === ' ') kickRequest = 14; });
-window.addEventListener('keyup', (e) => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
-
 function resetPositions() {
-    ball.x = FIELD_W/2; ball.y = FIELD_H/2; ball.vx = 0; ball.vy = 0;
-    ball.tx = FIELD_W/2; ball.ty = FIELD_H/2;
+    ball.x = FIELD_W/2; ball.y = FIELD_H/2; ball.vx = 0; ball.vy = 0; ball.tx = ball.x; ball.ty = ball.y;
+    lastTouchNick = "ALGUÉM"; 
     
-    const setPos = (p, x, y) => { p.x = x; p.y = y; p.vx = 0; p.vy = 0; p.tx = x; p.ty = y; };
     const azuis = roomPlayers.filter(p => p.team === 'azul');
     const vermelhos = roomPlayers.filter(p => p.team === 'vermelho');
 
-    azuis.forEach((p, i) => setPos(p, 200 + (i*100), FIELD_H/2 + (i%2===0?-100:100)));
-    vermelhos.forEach((p, i) => setPos(p, FIELD_W - (200 + (i*100)), FIELD_H/2 + (i%2===0?-100:100)));
-    roomPlayers.forEach(p => { if(p.team === 'spec') setPos(p, -5000, -5000); });
+    const setPos = (p, x, y) => { p.x = x; p.y = y; p.vx = 0; p.vy = 0; p.tx = x; p.ty = y; };
+
+    azuis.forEach((p, i) => {
+        if (i === 0) setPos(p, 200, FIELD_H/2);
+        else if (i === 1) setPos(p, 600, FIELD_H/2);
+        else if (i === 2) setPos(p, 900, FIELD_H/2 - 200);
+        else setPos(p, 900, FIELD_H/2 + 200);
+    });
+
+    vermelhos.forEach((p, i) => {
+        if (i === 0) setPos(p, FIELD_W - 200, FIELD_H/2);
+        else if (i === 1) setPos(p, FIELD_W - 600, FIELD_H/2);
+        else if (i === 2) setPos(p, FIELD_W - 900, FIELD_H/2 - 200);
+        else setPos(p, FIELD_W - 900, FIELD_H/2 + 200);
+    });
+    
+    roomPlayers.forEach(p => { if(p.team === 'spec') setPos(p, -9999, -9999); });
 }
 
 function resolvePlayerCollisions() {
@@ -724,14 +1031,17 @@ function resolvePlayerCollisions() {
         for (let j = i + 1; j < roomPlayers.length; j++) {
             let p1 = roomPlayers[i], p2 = roomPlayers[j];
             if (p1.x < -1000 || p2.x < -1000) continue;
+
             let dx = p2.x - p1.x, dy = p2.y - p1.y;
-            let dist = Math.sqrt(dx*dx + dy*dy);
+            let dist = Math.hypot(dx, dy);
             let minDist = p1.r + p2.r;
-            if (dist < minDist && dist > 0) {
+
+            if (dist < minDist && dist > 0.1) {
                 let overlap = minDist - dist;
                 let moveX = (dx / dist) * (overlap / 2);
                 let moveY = (dy / dist) * (overlap / 2);
-                p1.x -= moveX; p1.y -= moveY; p2.x += moveX; p2.y += moveY;
+                p1.x -= moveX; p1.y -= moveY;
+                p2.x += moveX; p2.y += moveY;
             }
         }
     }
@@ -739,240 +1049,287 @@ function resolvePlayerCollisions() {
 
 function triggerGoal(scorer) {
     playSound('goal');
-    document.getElementById('goal-nick').innerText = scorer || "GOL";
+    document.getElementById('goal-nick').innerText = scorer;
     document.getElementById('goal-container').style.display = 'block';
     
-    // Partículas muito simples para não lagar
-    particles = [];
-    for(let i=0; i<20; i++) particles.push({ x: canvas.width/2, y: canvas.height/2, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, life: 1 });
-
     setTimeout(() => {
         document.getElementById('goal-container').style.display = 'none';
-        if(isHost) { resetPositions(); broadcastRoomState(); }
+        if(isHost) {
+            isGoalProcess = false; 
+            resetPositions();
+            broadcastRoomState();
+        }
     }, 2500);
 }
 
-// === FÍSICA OTIMIZADA ===
-// Limite de velocidade para não atravessar
-const MAX_SPEED = 25; 
+function drawModernGoal(ctx, x, side) {
+    const topY = FIELD_H/2 - GOAL_H_HALF, botY = FIELD_H/2 + GOAL_H_HALF, backX = x + (side * GOAL_DEPTH);
+    ctx.lineJoin = "round";
+    
+    if(!graphicsLow) {
+        ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        for(let i=topY; i<=botY; i+=25) { ctx.moveTo(x, i); ctx.lineTo(backX, i); }
+        for(let i=0; i<=GOAL_DEPTH; i+=25) { let cx = x + (side * i); ctx.moveTo(cx, topY); ctx.lineTo(cx, botY); }
+        ctx.stroke();
+    }
 
-function physicsStep() {
-    roomPlayers.forEach(p => {
-        if(!p.input || p.x < -1000) return;
-        
-        // Movimento
-        p.vx += p.input.vx * 0.8; p.vy += p.input.vy * 0.8;
-        p.vx *= 0.88; p.vy *= 0.88; // Atrito
-        p.x += p.vx; p.y += p.vy;
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = graphicsLow ? 3 : 6;
+    ctx.beginPath();
+    ctx.moveTo(backX, topY); ctx.lineTo(backX, botY);
+    ctx.moveTo(x, topY); ctx.lineTo(backX, topY);
+    ctx.moveTo(x, botY); ctx.lineTo(backX, botY);
+    ctx.stroke();
+}
 
-        // Limites Campo
-        if(p.y < p.r) p.y = p.r; if(p.y > FIELD_H - p.r) p.y = FIELD_H - p.r;
-        if(p.x < p.r) p.x = p.r; if(p.x > FIELD_W - p.r) p.x = FIELD_W - p.r;
-
-        // Chute (Raio aumentado para não errar)
-        if(p.input.kick > 0) {
-             const dx = ball.x - p.x, dy = ball.y - p.y;
-             const dist = Math.sqrt(dx*dx + dy*dy);
-             if(dist < p.r + ball.r + 25) { 
-                 ball.vx = (dx/dist)*p.input.kick * 1.5; 
-                 ball.vy = (dy/dist)*p.input.kick * 1.5;
-                 playSound('kick');
-                 lastTouchNick = p.nick; 
-             }
-             p.input.kick = 0; 
-        }
-
-        // Colisão Corpo a Corpo com Bola
-        let dx = ball.x - p.x, dy = ball.y - p.y, dist = Math.sqrt(dx*dx + dy*dy);
-        if(dist < p.r + ball.r) { 
-            let ang = Math.atan2(dy, dx), overlap = (p.r + ball.r) - dist;
-            ball.x += Math.cos(ang) * overlap; ball.y += Math.sin(ang) * overlap;
-            ball.vx += Math.cos(ang) * 1.2; ball.vy += Math.sin(ang) * 1.2;
-            lastTouchNick = p.nick; 
+function checkPostCollision(entity) {
+    const topPost = FIELD_H/2 - GOAL_H_HALF, botPost = FIELD_H/2 + GOAL_H_HALF;
+    const posts = [{x:0, y:topPost}, {x:0, y:botPost}, {x:FIELD_W, y:topPost}, {x:FIELD_W, y:botPost}];
+    
+    // Colisão com Redes (Paredes do gol)
+    const walls = [
+        {y: topPost, minX: -GOAL_DEPTH, maxX: 0}, {y: botPost, minX: -GOAL_DEPTH, maxX: 0},
+        {y: topPost, minX: FIELD_W, maxX: FIELD_W + GOAL_DEPTH}, {y: botPost, minX: FIELD_W, maxX: FIELD_W + GOAL_DEPTH}
+    ];
+    
+    walls.forEach(w => {
+        if (entity.x >= w.minX - entity.r && entity.x <= w.maxX + entity.r) {
+            if (Math.abs(entity.y - w.y) < entity.r + 5) {
+                entity.y = (entity.y < w.y) ? w.y - (entity.r+5) : w.y + (entity.r+5);
+                if (entity === ball) entity.vy *= -0.5;
+            }
         }
     });
 
-    resolvePlayerCollisions();
-
-    // Física da Bola
-    ball.x += ball.vx; ball.y += ball.vy; 
-    ball.vx *= 0.98; ball.vy *= 0.98; // Atrito Bola
-
-    // CLAMP VELOCITY (Anti-Tunneling)
-    if(ball.vx > MAX_SPEED) ball.vx = MAX_SPEED; if(ball.vx < -MAX_SPEED) ball.vx = -MAX_SPEED;
-    if(ball.vy > MAX_SPEED) ball.vy = MAX_SPEED; if(ball.vy < -MAX_SPEED) ball.vy = -MAX_SPEED;
-
-    // Colisão Trave/Gol
-    const topPost = FIELD_H/2 - GOAL_H_HALF;
-    const botPost = FIELD_H/2 + GOAL_H_HALF;
-
-    // Paredes verticais
-    if(ball.y < ball.r) { ball.y = ball.r; ball.vy *= -0.8; }
-    if(ball.y > FIELD_H - ball.r) { ball.y = FIELD_H - ball.r; ball.vy *= -0.8; }
-
-    // Gols
-    let inGoalY = (ball.y > topPost + ball.r) && (ball.y < botPost - ball.r);
-    
-    // Esquerda
-    if(ball.x < ball.r) {
-        if(inGoalY) {
-            if(ball.x < -20) { 
-                score.verm++; triggerGoal(lastTouchNick); ball.x = FIELD_W/2; ball.vx = 0; broadcast({type:'GOAL_EVENT', scorer: lastTouchNick});
-            }
-        } else {
-            ball.x = ball.r; ball.vx *= -0.8;
-        }
-    }
-    // Direita
-    if(ball.x > FIELD_W - ball.r) {
-        if(inGoalY) {
-            if(ball.x > FIELD_W + 20) {
-                score.azul++; triggerGoal(lastTouchNick); ball.x = FIELD_W/2; ball.vx = 0; broadcast({type:'GOAL_EVENT', scorer: lastTouchNick});
-            }
-        } else {
-            ball.x = FIELD_W - ball.r; ball.vx *= -0.8;
-        }
-    }
-    
-    // Colisão com Postes (Círculo Simples)
-    const posts = [{x:0, y:topPost}, {x:0, y:botPost}, {x:FIELD_W, y:topPost}, {x:FIELD_W, y:botPost}];
+    // Colisão com a trave (Circular)
     posts.forEach(p => {
-        let dx = ball.x - p.x, dy = ball.y - p.y;
-        if(Math.sqrt(dx*dx + dy*dy) < ball.r + 20) {
+        let dx = entity.x - p.x, dy = entity.y - p.y;
+        let dist = Math.hypot(dx, dy);
+        if(dist < entity.r + 20) { 
             let angle = Math.atan2(dy, dx);
-            ball.vx = Math.cos(angle) * 5; ball.vy = Math.sin(angle) * 5;
-            ball.x = p.x + Math.cos(angle)*(ball.r+21); ball.y = p.y + Math.sin(angle)*(ball.r+21);
+            let pushOut = entity.r + 21;
+            entity.x = p.x + Math.cos(angle) * pushOut;
+            entity.y = p.y + Math.sin(angle) * pushOut;
+            if(entity === ball) {
+                playSound('post');
+                entity.vx = Math.cos(angle) * 5; entity.vy = Math.sin(angle) * 5;
+            }
         }
     });
 }
 
 function processInputLocal() {
-    let moveX = 0, moveY = 0;
-    if(keys.w) moveY = -1; if(keys.s) moveY = 1; if(keys.a) moveX = -1; if(keys.d) moveX = 1;
-    let vx = 0, vy = 0;
-    if(moveX || moveY) { let a = Math.atan2(moveY, moveX); vx = Math.cos(a); vy = Math.sin(a); }
-    else if(joy.active) { vx = Math.cos(joy.angle) * joy.force; vy = Math.sin(joy.angle) * joy.force; }
+    let vx = Math.cos(joy.angle) * joy.force;
+    let vy = Math.sin(joy.angle) * joy.force;
     
-    // Predição Client-Side
-    if(!isHost && myData.id) {
+    // Client Prediction (Só aplica se estiver no jogo)
+    if(!isHost && myData.id && document.getElementById('lobby').style.display === 'none') {
         const me = roomPlayers.find(p => p.id === myData.id);
         if(me) {
             me.vx += vx * 0.8; me.vy += vy * 0.8;
             me.vx *= 0.88; me.vy *= 0.88;
             me.x += me.vx; me.y += me.vy;
-            // Limites Locais
-            if(me.y < me.r) me.y = me.r; if(me.y > FIELD_H-me.r) me.y = FIELD_H-me.r;
+            if(me.y < me.r) me.y = me.r; if(me.y > FIELD_H - me.r) me.y = FIELD_H - me.r;
         }
     }
     return { vx: vx, vy: vy, kick: kickRequest };
 }
 
-function loop() {
-    if(document.getElementById('lobby').style.display !== 'none') { requestAnimationFrame(loop); return; }
+// --- FÍSICA NO HOST (Fixed Time Step Loop) ---
+// Isso roda independente do FPS, evitando Tunneling (atravessar coisas)
+function startPhysicsLoop() {
+    if(physicsInterval) clearInterval(physicsInterval);
+    physicsInterval = setInterval(() => {
+        if(!isHost || isPaused || document.getElementById('lobby').style.display !== 'none') return;
+        updateHostPhysics();
+    }, 1000 / PHYSICS_HZ);
+}
 
-    // Limpa tela (Background sólido é mais rápido que limpar frame a frame se cobrir tudo)
-    ctx.fillStyle = "#1a4d2e"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+function updateHostPhysics() {
+    // SUB-STEPPING: Divide o frame em 2 partes para detectar colisões rápidas
+    const steps = 2;
+    for(let step = 0; step < steps; step++) {
+        
+        roomPlayers.forEach(p => {
+            if(!p.input || p.x < -1000) return;
+            
+            // Movimento (Dividido pelos steps)
+            p.vx += p.input.vx * (0.8 / steps);
+            p.vy += p.input.vy * (0.8 / steps);
+            
+            // Fricção (Aplicada a cada step de forma suave)
+            p.vx *= 0.94; p.vy *= 0.94; // Equivalente a 0.88 em full step
+            
+            p.x += p.vx; p.y += p.vy;
+
+            // Chute (Só processa no primeiro step para não chutar 2x)
+            if(step === 0 && p.input.kick > 0) {
+                 const dx = ball.x - p.x, dy = ball.y - p.y;
+                 const dist = Math.hypot(dx, dy);
+                 if(dist < p.r + ball.r + 15) { 
+                     ball.vx = (dx/dist) * p.input.kick; 
+                     ball.vy = (dy/dist) * p.input.kick; 
+                     playSound('kick');
+                     lastTouchNick = p.nick; 
+                 }
+                 p.input.kick = 0; 
+            }
+
+            // Colisão Player-Bola
+            let dx = ball.x - p.x, dy = ball.y - p.y, dist = Math.hypot(dx, dy);
+            let minDist = p.r + ball.r;
+            if(dist < minDist) { 
+                let ang = Math.atan2(dy, dx), overlap = minDist - dist;
+                // Empurra a bola mais que o player
+                ball.x += Math.cos(ang) * (overlap * 0.7); 
+                ball.y += Math.sin(ang) * (overlap * 0.7);
+                p.x -= Math.cos(ang) * (overlap * 0.3); 
+                p.y -= Math.sin(ang) * (overlap * 0.3);
+                
+                ball.vx += Math.cos(ang)*0.3; ball.vy += Math.sin(ang)*0.3;
+                lastTouchNick = p.nick; 
+            }
+            
+            checkPostCollision(p);
+            // Paredes Campo
+            if(p.y < p.r) p.y = p.r; if(p.y > FIELD_H - p.r) p.y = FIELD_H - p.r;
+            if(p.x < p.r) p.x = p.r; if(p.x > FIELD_W - p.r) p.x = FIELD_W - p.r;
+        });
+
+        resolvePlayerCollisions();
+
+        // Física da Bola
+        ball.x += ball.vx / steps; 
+        ball.y += ball.vy / steps; 
+        ball.vx *= 0.992; ball.vy *= 0.992; // Atrito ar
+        
+        checkPostCollision(ball);
+        
+        // Paredes Laterais da Bola
+        if(ball.y < ball.r) { ball.y = ball.r; ball.vy *= -0.8; }
+        if(ball.y > FIELD_H - ball.r) { ball.y = FIELD_H - ball.r; ball.vy *= -0.8; }
+        
+        // Gol ou Parede de Fundo
+        if(ball.x < ball.r || ball.x > FIELD_W - ball.r) {
+            let topPostY = FIELD_H/2 - GOAL_H_HALF, botPostY = FIELD_H/2 + GOAL_H_HALF;
+            let inGoalY = (ball.y > topPostY + ball.r) && (ball.y < botPostY - ball.r);
+            
+            if(inGoalY) {
+                if(!isGoalProcess && step === 0) { // Só conta gol uma vez
+                    isGoalProcess = true;
+                    if(ball.x < FIELD_W/2) score.verm++; else score.azul++;
+                    broadcast({ type: 'GOAL_EVENT', scorer: lastTouchNick });
+                    triggerGoal(lastTouchNick);
+                }
+            } else {
+                if(ball.x < ball.r) { ball.x = ball.r; ball.vx *= -0.8; } 
+                else { ball.x = FIELD_W - ball.r; ball.vx *= -0.8; }
+            }
+        }
+        
+        // Limites de fundo do gol (pra bola não fugir)
+        if(ball.x < -GOAL_DEPTH + ball.r) { ball.x = -GOAL_DEPTH + ball.r; ball.vx *= -0.5; }
+        if(ball.x > FIELD_W + GOAL_DEPTH - ball.r) { ball.x = FIELD_W + GOAL_DEPTH - ball.r; ball.vx *= -0.5; }
+    }
+
+    // Rede: Envia pacote no ritmo certo
+    const now = Date.now();
+    if(now - lastNetworkUpdate > networkUpdateRate) {
+        broadcast({ 
+            type: 'GT', 
+            p: roomPlayers.map(p => ({i:p.id, x:Math.round(p.x), y:Math.round(p.y)})),
+            b: {x:Math.round(ball.x), y:Math.round(ball.y)},
+            s: score, t: timeLeft
+        });
+        lastNetworkUpdate = now;
+    }
+}
+
+function loop() {
+    if(document.getElementById('lobby').style.display !== 'none') {
+        requestAnimationFrame(loop);
+        return; 
+    }
+
+    // Render Background
+    ctx.fillStyle = "#14532d"; 
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if(!isPaused) {
         const myInput = processInputLocal();
+        // Envia Input
         if(!isHost && conn && conn.open) conn.send({ type: 'INPUT', id: myData.id, input: myInput });
+        // Host Processa Input Local para o Physics Loop ler depois
         if(isHost) {
             const me = roomPlayers.find(p => p.id === myData.id);
             if(me) me.input = myInput;
-            
-            // --- SUB-STEPPING (FÍSICA 2X MAIS RÁPIDA QUE O RENDER) ---
-            // Isso previne que a bola atravesse coisas
-            physicsStep();
-            physicsStep();
-            // --------------------------------------------------------
-
-            const now = Date.now();
-            if(now - lastNetworkUpdate > networkUpdateRate) {
-                broadcast({ 
-                    type: 'GT', 
-                    p: roomPlayers.map(p => ({i:p.id, x:Math.round(p.x), y:Math.round(p.y)})),
-                    b: {x:Math.round(ball.x), y:Math.round(ball.y)},
-                    s: score, t: timeLeft
-                });
-                lastNetworkUpdate = now;
-            }
-        } 
+        }
         kickRequest = 0; 
     }
 
-    // INTERPOLAÇÃO CLIENTE (Bola suave)
+    // Interpolação do Cliente (Visual apenas)
     if (!isHost && !isPaused) {
-        // Aumentei o lerp para 0.5 (era 0.3) para ser mais responsivo
-        ball.x += (ball.tx - ball.x) * 0.5;
-        ball.y += (ball.ty - ball.y) * 0.5;
-        
+        const lerpFactor = 0.4; // Aumentei para ficar mais responsivo
+        ball.x += (ball.tx - ball.x) * lerpFactor;
+        ball.y += (ball.ty - ball.y) * lerpFactor;
+
         roomPlayers.forEach(p => {
-            if(p.id !== myData.id && p.tx !== undefined && p.x > -5000) {
-                p.x += (p.tx - p.x) * 0.5;
-                p.y += (p.ty - p.y) * 0.5;
+            if(p.id !== myData.id && p.x > -5000) {
+                p.x += (p.tx - p.x) * lerpFactor;
+                p.y += (p.ty - p.y) * lerpFactor;
             }
         });
     }
 
-    // RENDERIZAÇÃO OTIMIZADA (SEM SOMBRAS)
+    // Camera
     ctx.save();
+    ctx.translate(canvas.width/2 / ctx.getTransform().a, canvas.height/2 / ctx.getTransform().d); 
+    ctx.scale(gameZoom, gameZoom);
     
-    // Zoom e Câmera
-    let cx = 0, cy = 0;
-    if(isEditing) { cx = FIELD_W/2; cy = FIELD_H/2; }
+    if(isEditing) ctx.translate(-FIELD_W/2, -FIELD_H/2);
     else {
         const me = roomPlayers.find(p => p.id === myData.id);
-        if(me && me.team !== 'spec' && me.x > -1000) { cx = me.x; cy = me.y; }
-        else { cx = ball.x; cy = ball.y; }
+        if(me && me.team && me.team !== 'spec' && me.x > -5000) ctx.translate((-me.x|0), (-me.y|0));
+        else ctx.translate((-ball.x|0), (-ball.y|0));
     }
-    
-    ctx.translate(canvas.width/2, canvas.height/2);
-    ctx.scale(gameZoom, gameZoom);
-    ctx.translate(-cx, -cy);
 
-    // Desenha Campo (Linhas Simples)
-    ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 4; 
+    // Desenha Campo
+    ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = graphicsLow ? 2 : 5; 
     ctx.strokeRect(0, 0, FIELD_W, FIELD_H);
     ctx.beginPath(); ctx.moveTo(FIELD_W/2, 0); ctx.lineTo(FIELD_W/2, FIELD_H); ctx.stroke();
     ctx.beginPath(); ctx.arc(FIELD_W/2, FIELD_H/2, 130, 0, Math.PI*2); ctx.stroke();
-
-    // Gols
-    const ty = FIELD_H/2 - GOAL_H_HALF, by = FIELD_H/2 + GOAL_H_HALF;
-    ctx.lineWidth = 6; ctx.strokeStyle = "#fff";
-    ctx.beginPath(); ctx.moveTo(0, ty); ctx.lineTo(-GOAL_DEPTH, ty); ctx.lineTo(-GOAL_DEPTH, by); ctx.lineTo(0, by); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(FIELD_W, ty); ctx.lineTo(FIELD_W+GOAL_DEPTH, ty); ctx.lineTo(FIELD_W+GOAL_DEPTH, by); ctx.lineTo(FIELD_W, by); ctx.stroke();
+    drawModernGoal(ctx, 0, -1); drawModernGoal(ctx, FIELD_W, 1);
 
     // Bola
-    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.stroke();
+    if(!graphicsLow) { ctx.shadowBlur = 15; ctx.shadowColor = "rgba(0,0,0,0.4)"; }
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc((ball.x|0), (ball.y|0), ball.r, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
     
-    // Jogadores
+    // Players
     roomPlayers.forEach(p => {
         if(p.x < -1000) return; 
+        const px = p.x | 0; const py = p.y | 0;
         ctx.fillStyle = p.team === 'azul' ? '#2563eb' : '#dc2626';
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+        if(!graphicsLow) { ctx.shadowBlur = 10; ctx.shadowColor = p.team === 'azul' ? '#2563eb' : '#dc2626'; }
+        ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0; ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
         
-        // Indicador de direção simples
-        if(p.id === myData.id) {
-            ctx.strokeStyle = "#FFFF00"; ctx.lineWidth = 3; ctx.stroke();
-        } else {
-            ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
-        }
-        
-        ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
-        ctx.fillText(p.nick, p.x, p.y - 35);
+        ctx.fillStyle = "white"; ctx.font = "900 18px Arial"; ctx.textAlign = "center";
+        ctx.fillText(p.nick, px, py - 40);
+        if(p.isCaptain) ctx.fillText("👑", px, py - 60);
+        if(p.id === myData.id) { ctx.beginPath(); ctx.moveTo(px, py-30); ctx.lineTo(px-5, py-38); ctx.lineTo(px+5, py-38); ctx.fill(); }
     });
     
-    // Partículas (Gol)
-    if(particles.length > 0) {
-        ctx.fillStyle = "#FFFF00";
-        for(let i=particles.length-1; i>=0; i--) {
-            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-            if(p.life > 0) ctx.fillRect(p.x, p.y, 8, 8);
-            else particles.splice(i, 1);
-        }
+    // Pause Overlay
+    if(isPaused) {
+        ctx.shadowColor = "black"; ctx.lineWidth = 8; ctx.strokeStyle = "black";
+        ctx.fillStyle = "#facc15"; ctx.font = "italic 900 60px sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        let cx = roomPlayers.find(p=>p.id===myData.id)?.x || ball.x, cy = roomPlayers.find(p=>p.id===myData.id)?.y || ball.y;
+        if(cx < 0) { cx = FIELD_W/2; cy = FIELD_H/2; }
+        ctx.strokeText("JOGO PAUSADO", cx, cy); ctx.fillText("JOGO PAUSADO", cx, cy);
     }
-
     ctx.restore();
     requestAnimationFrame(loop);
 }
