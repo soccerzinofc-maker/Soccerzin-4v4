@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOCCERZIN 4V4 - LITE PHYSICS (FIXED)</title>
+    <title>SOCCERZIN 4V4 - PRO PHYSICS</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* CSS OTIMIZADO PARA GPU */
+        /* CSS MANTIDO IDÊNTICO AO SEU */
         body { margin: 0; overflow: hidden; background: #0f3d24; touch-action: none; font-family: sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
         
         canvas { 
@@ -214,7 +214,7 @@
         
         <div id="screen-main" class="menu-screen">
             <h1 class="text-6xl font-black italic mb-2">SOCCERZIN <span class="text-green-500">4V4</span></h1>
-            <p class="text-green-400 text-xs font-bold mb-6 tracking-widest">PERFORMANCE LITE</p>
+            <p class="text-green-400 text-xs font-bold mb-6 tracking-widest">ANTI-LAG EDITION</p>
             <input type="text" id="playerNick" class="bg-white/5 border border-white/10 text-white px-4 py-4 rounded-2xl mb-6 w-72 text-center font-bold text-xl" placeholder="SEU NICKNAME" maxlength="12">
             
             <button onclick="goToRoomMenu()" class="bg-green-600 text-black px-10 py-5 rounded-2xl font-black text-2xl shadow-lg hover:scale-105 transition mb-6 w-72">JOGAR SALAS</button>
@@ -309,12 +309,16 @@
 </div>
 
 <script>
-// --- CONFIGURAÇÃO DE REDE ---
+// --- CONFIGURAÇÃO DE REDE OTIMIZADA PARA CONEXÃO RÁPIDA ---
 const peerConfig = {
+    debug: 1,
     config: {
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
         ]
     }
 };
@@ -328,7 +332,8 @@ let myPeerId = null;
 let myData = { nick: '', id: '', isAdmin: false, team: 'spec', isCaptain: false, r: 24 };
 
 let lastNetworkUpdate = 0;
-const networkUpdateRate = 1000 / 30; 
+// Aumentei um pouco a taxa para 45 (mais fluido, sem exagerar)
+const networkUpdateRate = 1000 / 45; 
 
 function generateRoomCode() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -358,6 +363,11 @@ let bannedPlayers = [];
 
 const bgm = document.getElementById('menu-music');
 let musicOn = false;
+
+// FUNÇÃO LERP PARA ANTI-LAG (Interpolação Linear)
+function lerp(start, end, amt) {
+    return (1 - amt) * start + amt * end;
+}
 
 function toggleMusic() {
     const btn = document.getElementById('btn-music');
@@ -447,12 +457,14 @@ function joinRoom() {
     }
     
     const hostId = "SOC-PRO-" + code;
+    document.getElementById('network-status').innerText = "Conectando...";
+    
     peer = new Peer(peerConfig); 
     
     peer.on('open', (id) => {
         myPeerId = id;
-        // MELHORIA DE CONEXÃO: reliable e json
-        conn = peer.connect(hostId, { reliable: true, serialization: 'json' });
+        // Usar serialization json para ser mais compatível
+        conn = peer.connect(hostId, { serialization: 'json' });
         
         conn.on('open', () => {
             isHost = false;
@@ -530,13 +542,9 @@ function handleClientData(data) {
         newPlayers.forEach(np => {
             const existing = roomPlayers.find(ep => ep.id === np.id);
             if(existing) {
+                // Preserva posições para evitar pulos no lobby
                 if(document.getElementById('lobby').style.display === 'none') {
-                    // Mantém local se for eu (para evitar glitch)
-                    if(np.id === myData.id) {
-                         np.x = existing.x; np.y = existing.y;
-                    } else {
-                         np.x = existing.x; np.y = existing.y;
-                    }
+                     np.x = existing.x; np.y = existing.y;
                 }
             }
         });
@@ -566,34 +574,33 @@ function handleClientData(data) {
     }
     
     if(data.type === 'GAME_TICK') {
-        // CORREÇÃO DE LAG: Interpolação melhorada (0.3 para ser mais responsivo)
+        // --- ANTI-LAG DO CLIENTE ---
+        // A mágica: Usamos 'lerp' para suavizar a posição que vem do servidor
+        // Fator de interpolação: 0.4 (Alto = Rápido/Instantâneo, Baixo = Lento/Suave)
+        const lerpFactor = 0.4; 
+        
         data.players.forEach(serverP => {
             const localP = roomPlayers.find(lp => lp.id === serverP.id);
             if(localP) {
-                localP.targetX = serverP.x;
-                localP.targetY = serverP.y;
-                localP.team = serverP.team;
-                
-                // Reconciliação mais suave para não "puxar" o jogador local se a diferença for pequena
+                // Se for eu, confio mais na minha predição local, a menos que o erro seja grande
                 if(localP.id === myData.id) {
                     const dist = Math.hypot(localP.x - serverP.x, localP.y - serverP.y);
-                    if(dist > 200) { // Tolerância MAIOR para evitar puxão (teleporte)
-                        localP.x = serverP.x; localP.y = serverP.y;
+                    if(dist > 50) { // Só corrige se o erro for grande (reduz o "puxão" de volta)
+                        localP.x = lerp(localP.x, serverP.x, 0.1); 
+                        localP.y = lerp(localP.y, serverP.y, 0.1);
                     }
                 } else {
-                    if (Math.abs(localP.x - serverP.x) > 300) {
-                        localP.x = serverP.x; localP.y = serverP.y;
-                    }
+                    // Outros jogadores: suaviza movimento
+                    localP.x = lerp(localP.x, serverP.x, lerpFactor);
+                    localP.y = lerp(localP.y, serverP.y, lerpFactor);
                 }
+                localP.team = serverP.team;
             }
         });
         
-        // Bola interpolação
-        ball.targetX = data.ball.x;
-        ball.targetY = data.ball.y;
-        if(Math.abs(ball.x - data.ball.x) > 300) {
-            ball.x = data.ball.x; ball.y = data.ball.y;
-        }
+        // Bola: Interpolação suave
+        ball.x = lerp(ball.x, data.ball.x, lerpFactor);
+        ball.y = lerp(ball.y, data.ball.y, lerpFactor);
 
         score = data.score;
         timeLeft = data.timeLeft;
@@ -992,7 +999,7 @@ let player = { x: -9999, y: -9999, vx: 0, vy: 0, r: 24, time: '', nick: '', inpu
 let ball = { x: FIELD_W/2, y: FIELD_H/2, vx: 0, vy: 0, r: 15, visible: true, targetX: FIELD_W/2, targetY: FIELD_H/2 }; 
 let score = { azul: 0, verm: 0 }, joy = { active: false, angle: 0, force: 0, id: null };
 let isGoalProcess = false;
-let kickRequest = 0; // Se tornou um contador
+let kickRequest = 0; 
 let lastTouchNick = "ALGUÉM"; 
 
 function toggleHudEdit() {
@@ -1084,8 +1091,8 @@ window.addEventListener('keydown', (e) => {
     if (document.activeElement.tagName === 'INPUT') return;
     const k = e.key.toLowerCase();
     if(keys.hasOwnProperty(k)) keys[k] = true;
-    if(k === 'n') kickRequest = 3; // FIX: 3 Frames de chute
-    if(k === 'm') kickRequest = 3; 
+    if(k === 'n') kickRequest = 13; 
+    if(k === 'm') kickRequest = 8; 
 });
 
 window.addEventListener('keyup', (e) => {
@@ -1093,9 +1100,8 @@ window.addEventListener('keyup', (e) => {
     if(keys.hasOwnProperty(k)) keys[k] = false;
 });
 
-// FIX: Botões agora ativam o contador de chute para garantir envio
-document.getElementById('kickBtn').addEventListener('touchstart', (e) => { e.preventDefault(); kickRequest = 5; player.kickPower = 13; });
-document.getElementById('passBtn').addEventListener('touchstart', (e) => { e.preventDefault(); kickRequest = 5; player.kickPower = 8; });
+document.getElementById('kickBtn').addEventListener('touchstart', (e) => { e.preventDefault(); kickRequest = 13; });
+document.getElementById('passBtn').addEventListener('touchstart', (e) => { e.preventDefault(); kickRequest = 8; });
 
 function resetPositions() {
     ball.x = FIELD_W/2; ball.y = FIELD_H/2; ball.vx = 0; ball.vy = 0;
@@ -1224,7 +1230,6 @@ function checkPostCollision(entity) {
     });
 }
 
-// FIX: Removido cálculo de colisão com bola no cliente para evitar conflito com servidor
 function processInputLocal() {
     let moveX = 0; let moveY = 0;
     if(keys.w) moveY = -1;
@@ -1242,7 +1247,7 @@ function processInputLocal() {
         vy = Math.sin(joy.angle) * joy.force;
     }
     
-    // PREDIÇÃO DO CLIENTE (APENAS MOVIMENTO, SEM COLISÃO BOLA)
+    // PREDIÇÃO DO CLIENTE (Anti-Lag Local)
     if(!isHost && !isPaused) {
         const me = roomPlayers.find(p => p.id === myData.id);
         if(me) {
@@ -1255,41 +1260,38 @@ function processInputLocal() {
             if(me.x > FIELD_W - me.r) me.x = FIELD_W - me.r;
             if(me.y < me.r) me.y = me.r;
             if(me.y > FIELD_H - me.r) me.y = FIELD_H - me.r;
+
+            // FIX: Predição de interação com a bola (Para parecer instantâneo)
+            // Se o cliente toca na bola, a gente empurra a bola localmente ANTES do servidor confirmar
+            let dx = ball.x - me.x, dy = ball.y - me.y;
+            let d = Math.sqrt(dx*dx+dy*dy);
+            if(d < me.r + ball.r) {
+                 // Drible local
+                 let angle = Math.atan2(dy, dx);
+                 if(kickRequest > 0) {
+                     ball.vx = Math.cos(angle) * 16;
+                     ball.vy = Math.sin(angle) * 16;
+                 } else {
+                     ball.vx = Math.cos(angle) * 4;
+                     ball.vy = Math.sin(angle) * 4;
+                 }
+                 ball.x += ball.vx; ball.y += ball.vy;
+            }
         }
     }
     
-    // Envia chute se contador > 0
-    let kickVal = 0;
-    if(kickRequest > 0) {
-        kickVal = player.kickPower || 13;
-    }
-
-    if((vx !== 0 || vy !== 0 || kickVal > 0) && isHost) {
+    if((vx !== 0 || vy !== 0 || kickRequest > 0) && isHost) {
         const me = roomPlayers.find(p => p.id === myPeerId);
         if(me) me.lastAction = Date.now();
     }
     
-    return { vx: vx, vy: vy, kick: kickVal };
+    return { vx: vx, vy: vy, kick: kickRequest };
 }
 
 function loop() {
     if(document.getElementById('lobby').style.display !== 'none') {
         requestAnimationFrame(loop);
         return; 
-    }
-
-    if(!isHost) {
-        // INTERPOLAÇÃO OTIMIZADA PARA REDUZIR TELEPORTE (0.3)
-        roomPlayers.forEach(p => {
-            if(p.id !== myData.id && p.targetX !== undefined) {
-                p.x += (p.targetX - p.x) * 0.3;
-                p.y += (p.targetY - p.y) * 0.3;
-            }
-        });
-        if(ball.targetX !== undefined) {
-            ball.x += (ball.targetX - ball.x) * 0.3;
-            ball.y += (ball.targetY - ball.y) * 0.3;
-        }
     }
 
     ctx.fillStyle = "#14532d"; 
@@ -1301,15 +1303,17 @@ function loop() {
     if(!isPaused) {
         const myInput = processInputLocal();
         if(!isHost && conn && conn.open) {
-            conn.send({ type: 'INPUT', id: myData.id, input: myInput });
+            // Envia apenas se houver input relevante para economizar rede
+            if(myInput.vx !== 0 || myInput.vy !== 0 || myInput.kick > 0) {
+                conn.send({ type: 'INPUT', id: myData.id, input: myInput });
+            }
         }
         if(isHost) {
             const me = roomPlayers.find(p => p.id === myData.id);
             if(me) me.input = myInput;
             updateGameInfoDOM(timeLeft, score);
         }
-        // FIX: Decrementa contador para o chute durar alguns frames e não falhar
-        if(kickRequest > 0) kickRequest--; 
+        kickRequest = 0; 
     }
 
     if(isHost && !isPaused) {
@@ -1323,7 +1327,7 @@ function loop() {
             p.x += p.vx; p.y += p.vy;
             checkPostCollision(p);
 
-            // CORREÇÃO FÍSICA NO HOST
+            // --- NOVA FÍSICA DE COLISÃO (SOLUÇÃO BOLA GRUDADA) ---
             let dx = ball.x - p.x;
             let dy = ball.y - p.y;
             let dist = Math.sqrt(dx*dx + dy*dy);
@@ -1332,22 +1336,31 @@ function loop() {
             if (dist < minDist) {
                 let angle = Math.atan2(dy, dx);
                 let overlap = minDist - dist;
-
+                
+                // Empurra a bola para fora do player imediatamente
                 ball.x += Math.cos(angle) * overlap;
                 ball.y += Math.sin(angle) * overlap;
 
-                // --- FÍSICA CORRIGIDA: IMPULSO ---
+                // 1. CHECA CHUTE PRIMEIRO (Prioridade máxima)
                 if(p.input.kick > 0) {
-                     ball.vx = Math.cos(angle) * 16; 
-                     ball.vy = Math.sin(angle) * 16; 
+                     ball.vx = Math.cos(angle) * (p.input.kick + 3); // Força do chute
+                     ball.vy = Math.sin(angle) * (p.input.kick + 3); 
                      playSound('kick');
-                     lastTouchNick = p.nick; 
+                     lastTouchNick = p.nick;
                      p.input.kick = 0; // Consome o chute
-                } else {
-                    // Drible: Adiciona impulso ao invés de setar velocidade (evita grude)
-                    // Empurra a bola um pouco mais rápido que o player
-                    ball.vx = p.vx + (Math.cos(angle) * 2.5); 
-                    ball.vy = p.vy + (Math.sin(angle) * 2.5);
+                } 
+                // 2. DRIBLE (Impulso, não "arrastar")
+                else {
+                    // Ao invés de definir a velocidade da bola igual a do player (que causa o sticky),
+                    // nós adicionamos uma força baseada na colisão.
+                    // Se o player está correndo contra a bola, a bola é empurrada.
+                    
+                    let playerSpeed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+                    let force = Math.max(playerSpeed * 1.2, 3); // Mínimo de força 3 para não grudar parado
+                    
+                    ball.vx = Math.cos(angle) * force;
+                    ball.vy = Math.sin(angle) * force;
+                    
                     lastTouchNick = p.nick;
                 }
             }
@@ -1357,11 +1370,11 @@ function loop() {
 
         // FÍSICA DA BOLA - ATRITO
         ball.x += ball.vx; ball.y += ball.vy; 
-        ball.vx *= 0.97; ball.vy *= 0.97; 
+        ball.vx *= 0.96; ball.vy *= 0.96; // Um pouco mais escorregadia
 
         // CLAMP VELOCITY
-        ball.vx = Math.max(Math.min(ball.vx, 20), -20);
-        ball.vy = Math.max(Math.min(ball.vy, 20), -20);
+        ball.vx = Math.max(Math.min(ball.vx, 25), -25);
+        ball.vy = Math.max(Math.min(ball.vy, 25), -25);
 
         checkPostCollision(ball);
         if(ball.y < ball.r) { ball.y = ball.r; ball.vy *= -0.8; }
@@ -1388,4 +1401,76 @@ function loop() {
         if(now - lastNetworkUpdate > networkUpdateRate) {
             broadcast({ 
                 type: 'GAME_TICK', 
-                players: roomPlayers.map(p => ({id:p.id, x:Math.round(p.x), y:Math.round(p.y), r:p.r, nick
+                players: roomPlayers.map(p => ({id:p.id, x:Math.round(p.x), y:Math.round(p.y), r:p.r, nick:p.nick, team:p.team, isCaptain:p.isCaptain})),
+                ball: {x:Math.round(ball.x), y:Math.round(ball.y), r:ball.r},
+                score: score,
+                timeLeft: timeLeft
+            });
+            lastNetworkUpdate = now;
+        }
+    }
+
+    if(particles.length > 0) {
+        for(let i=particles.length-1; i>=0; i--) {
+            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.05; 
+            ctx.fillStyle = p.color; 
+            ctx.fillRect((p.x|0), (p.y|0), 8, 8); 
+            if(p.life <= 0) particles.splice(i, 1);
+        }
+    }
+
+    ctx.save();
+    ctx.translate(canvas.width/2 / ctx.getTransform().a, canvas.height/2 / ctx.getTransform().d); 
+    ctx.scale(gameZoom, gameZoom);
+    
+    if(isEditing) {
+        ctx.translate(-FIELD_W/2, -FIELD_H/2);
+    } else {
+        const me = roomPlayers.find(p => p.id === myData.id);
+        if(me && me.team && me.team !== 'spec' && me.x > -5000) {
+             ctx.translate((-me.x|0), (-me.y|0)); 
+        } else {
+             ctx.translate((-ball.x|0), (-ball.y|0)); 
+        }
+    }
+
+    ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 4;
+    ctx.strokeRect(0, 0, FIELD_W, FIELD_H);
+    ctx.beginPath(); ctx.moveTo(FIELD_W/2, 0); ctx.lineTo(FIELD_W/2, FIELD_H); ctx.stroke();
+    ctx.beginPath(); ctx.arc(FIELD_W/2, FIELD_H/2, 130, 0, Math.PI*2); ctx.stroke();
+
+    drawModernGoal(ctx, 0, -1); drawModernGoal(ctx, FIELD_W, 1);
+
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc((ball.x|0), (ball.y|0), ball.r, 0, Math.PI*2); ctx.fill();
+    
+    roomPlayers.forEach(p => {
+        if(p.x < -1000) return; 
+        const px = p.x | 0; 
+        const py = p.y | 0;
+
+        ctx.fillStyle = p.team === 'azul' ? '#2563eb' : '#dc2626';
+        ctx.beginPath(); ctx.arc(px, py, p.r, 0, Math.PI*2); ctx.fill();
+        
+        ctx.fillStyle = "white"; ctx.font = "bold 16px Arial"; ctx.textAlign = "center";
+        ctx.fillText(p.nick, px, py - 40);
+        if(p.isCaptain) ctx.fillText("👑", px, py - 60);
+        if(p.id === myData.id) {
+            ctx.beginPath(); ctx.moveTo(px, py-30); ctx.lineTo(px-5, py-38); ctx.lineTo(px+5, py-38); ctx.fill();
+        }
+    });
+    
+    if(isPaused) {
+        let cx = 0, cy = 0;
+        const me = roomPlayers.find(p => p.id === myData.id);
+        if(me && me.x > -5000) { cx = me.x|0; cy = me.y|0; } else { cx = ball.x|0; cy = ball.y|0; }
+        ctx.fillStyle = "#facc15"; ctx.font = "italic 900 60px sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("JOGO PAUSADO", cx, cy);
+    }
+    ctx.restore();
+    requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
