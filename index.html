@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOCCERZIN 4V4 - FIXED PHYSICS</title>
+    <title>SOCCERZIN 4V4 - LITE PHYSICS</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -322,7 +322,6 @@ const peerConfig = {
         ]
     }
 };
-// NOTA: Se mesmo assim não conectar, a rede do usuário pode ser estrita (NAT).
 
 let peer = null;
 let conn = null; 
@@ -333,8 +332,8 @@ let myPeerId = null;
 let myData = { nick: '', id: '', isAdmin: false, team: 'spec', isCaptain: false, r: 24 };
 
 let lastNetworkUpdate = 0;
-// AUMENTADO PARA 50 TICKS - Mais atualizações por segundo para suavizar
-const networkUpdateRate = 1000 / 50; 
+// --- ANTI-LAG: REDUZIDO PARA 30 TICKETS/SEG (Mais leve para Internet e servidor) ---
+const networkUpdateRate = 1000 / 30; 
 
 function generateRoomCode() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -1346,22 +1345,21 @@ function loop() {
                 ball.x += Math.cos(angle) * overlap;
                 ball.y += Math.sin(angle) * overlap;
 
-                // 2. Chute/Empurrão
+                // --- FÍSICA CORRIGIDA AQUI (LITE) ---
                 if(p.input.kick > 0) {
-                     // Chute forte
+                     // CHUTE: Aplica força forte
                      ball.vx = Math.cos(angle) * 16; 
                      ball.vy = Math.sin(angle) * 16; 
                      playSound('kick');
                      lastTouchNick = p.nick; 
                      p.input.kick = 0;
                 } else {
-                    // Empurrão normal (corpo)
-                    // Transfere um pouco da velocidade do player pra bola, mas não muito
-                    ball.vx += p.vx * 1.5;
-                    ball.vy += p.vy * 1.5;
+                    // DRIBLE: A bola apenas "segue" o jogador, sem ganhar velocidade extra maluca
+                    // Em vez de SOMAR (+=), nós definimos (=) baseado na velocidade do player
+                    // Isso evita o "chute automático"
+                    ball.vx = p.vx * 1.15; 
+                    ball.vy = p.vy * 1.15;
                     
-                    // Se player tá parado e bola bate nele, ela quica levemente
-                    // Se player tá correndo na bola, ela acelera
                     lastTouchNick = p.nick;
                 }
             }
@@ -1373,9 +1371,9 @@ function loop() {
         ball.x += ball.vx; ball.y += ball.vy; 
         ball.vx *= 0.97; ball.vy *= 0.97; // Bola um pouco mais "pesada" pra não deslizar infinito
 
-        // CLAMP VELOCITY (IMPEDE BOLA LASER)
-        ball.vx = Math.max(Math.min(ball.vx, 25), -25);
-        ball.vy = Math.max(Math.min(ball.vy, 25), -25);
+        // CLAMP VELOCITY (IMPEDE BOLA LASER E GLITCHES)
+        ball.vx = Math.max(Math.min(ball.vx, 20), -20);
+        ball.vy = Math.max(Math.min(ball.vy, 20), -20);
 
         checkPostCollision(ball);
         if(ball.y < ball.r) { ball.y = ball.r; ball.vy *= -0.8; }
